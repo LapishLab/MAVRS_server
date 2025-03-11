@@ -1,3 +1,3 @@
 #!/bin/bash
-echo "Uploading the piData folder to David's Onerive"
-xfce4-terminal --hold -x bash -c 'rclone copy /home/server/Desktop/piData OneDrive_David:/piData_backup --metadata --human-readable -v ; echo transfer complete'
+echo "Uploading the piData folder to DataStar"
+xfce4-terminal --hold -x bash -c 'rsync -av /mnt/piData/ lapishla@datastar.psych.indianapolis.iu.edu:/research/pi_DD ; echo transfer complete'
