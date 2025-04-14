@@ -7,7 +7,7 @@ echo 'Enter session name:'
 read -e -i "$prefix" session
 
 echo 'creating MED-PC folder'
-ssh dlinsenb@10.0.0.3 'mkdir \data\'$session'\med-pc_'$session
+ssh dlinsenb@10.0.0.1 'mkdir \data\'$session'\med-pc_'$session
 
 echo 'creating experiment folder on this PC'
 mkdir "/mnt/c/data/$session"
