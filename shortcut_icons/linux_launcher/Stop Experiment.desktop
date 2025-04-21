@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Stop Experiment
+Comment=
+Exec=/home/lapishla/Desktop/MAVRS_server/stopExperiment.sh
+Icon=/home/lapishla/Desktop/MAVRS_server/shortcut_icons/ico/stop.ico
+Path=
+Terminal=true
+StartupNotify=false

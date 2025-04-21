@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Transfer data from Pi to Server
+Comment=
+Exec=/home/lapishla/Desktop/MAVRS_server/transferData.sh
+Icon=/home/lapishla/Desktop/MAVRS_server/shortcut_icons/ico/download.ico
+Path=
+Terminal=true
+StartupNotify=false
