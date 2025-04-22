@@ -21,4 +21,4 @@ echo 'Hit enter when ready to start Pi recording'
 read
 
 echo "started recording ${session}"
-cssh piCluster -a "python -u MAVRS_pi/startExperiment.py --session ${session}"
+cssh piCluster -a "python -u MAVRS_pi/startExperiment.py --session $session/pi-data_$session"
