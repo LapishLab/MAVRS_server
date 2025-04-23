@@ -20,7 +20,7 @@ echo 'Verify correct name, then hit enter'
 read -e -i "$suggested" session
 
 echo 'creating MED-PC folder'
-#ssh lapishla@10.0.0.1 'mkdir \data\'$session'\med-pc_'$session
+ssh lapishla@10.1.1.2 "mkdir -p /mnt/c/data/$session/med-pc_$session"
 
 echo 'Hit enter when ready to start Pi recording'
 read
