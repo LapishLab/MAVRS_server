@@ -1,6 +1,11 @@
 #!/bin/bash
 cd $(dirname "$(readlink -f "$0")")
 
+echo "setting clock time on Pis"
+./setTime.sh
+echo "reporting disk space on Pis"
+./reportDiskSpace.sh
+
 echo 'Enter experiment name:'
 read -e exp
 
