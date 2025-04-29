@@ -1,7 +1,10 @@
 #!/bin/bash
+cd $(dirname "$(readlink -f "$0")")
+
 echo "copying data from  MED-PC"
-rsync --progress -a 'lapishla@10.1.1.2:/mnt/c/data/' '/home/lapishla/Desktop/piData'
-echo "MED-PC Sync completed: Hit enter to begin pi transfer"
+./transfer_med.sh
+
+echo "Hit enter to begin pi transfer"
 read
 
 echo "copying data from Pi"
