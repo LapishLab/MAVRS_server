@@ -52,7 +52,7 @@ def choose_experiment_from_file():
 
     while True:
         choice = input("\nEnter number or hit enter to choose #1: ") or "1"
-        if choice.isdigit:
+        if choice.isdigit():
             choice = int(choice)
             if 1 <= choice <= len(lines):
                 return lines[choice - 1].strip()
