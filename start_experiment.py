@@ -1,7 +1,11 @@
 import subprocess
 import datetime
 from load_settings import load_settings, load_experiment_names
+import os
 def main():
+    # Change directory for running the following shell scripts 
+    os.chdir(os.path.dirname(os.path.realpath(__file__)))
+
     print("Setting clock time on Pis")
     subprocess.run(["./setTime.sh"], check=True)
 
@@ -51,7 +55,7 @@ def choose_experiment_from_file():
         for index, line in enumerate(lines, start=1):
             print(f"{index}. {line.strip()}")
         choice = input("\nEnter number or hit enter to choose #1: ") or "1"
-        
+
         if choice.isdigit():
             choice = int(choice)
             if 1 <= choice <= len(lines):
