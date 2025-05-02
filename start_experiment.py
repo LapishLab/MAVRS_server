@@ -51,16 +51,15 @@ def choose_experiment_from_file():
         print(f"{index}. {line.strip()}")
 
     while True:
-        try:
-            choice = int(input("Enter number: "))
+        choice = input("\nEnter number or hit enter to choose #1: ") or "1"
+        if choice.isdigit:
+            choice = int(choice)
             if 1 <= choice <= len(lines):
-                break
+                return lines[choice - 1].strip()
             else:
-                print("Invalid choice. Enter a number within the valid range.")
-        except ValueError:
+                print("Invalid input. Enter a number within the valid range.")
+        else:
             print("Invalid input. Please enter a number.")
-    name = lines[choice - 1].strip()
-    return name
 
 if __name__ == "__main__":
     main()
