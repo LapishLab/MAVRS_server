@@ -20,7 +20,12 @@ echo 'Verify correct name, then hit enter'
 read -e -i "$suggested" session
 
 echo 'creating MED-PC folder'
-ssh lapishla@10.1.1.2 "mkdir -p /mnt/c/data/$session/med-pc_$session"
+REMOTE_USER="lapishla"
+REMOTE_HOST="10.1.1.2"
+REMOTE_TEMP="/mnt/c/med_NOW/"
+
+CMD="mkdir -p $REMOTE_TEMP/$session/med-pc_$session"
+ssh "$REMOTE_USER@$REMOTE_HOST" $CMD
 
 echo 'Hit enter when ready to start Pi recording'
 read
