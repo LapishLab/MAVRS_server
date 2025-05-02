@@ -46,12 +46,12 @@ def start_pi_recordings(session):
 def choose_experiment_from_file():
     lines = load_experiment_names()
 
-    print("\nSelect an experiment name:")
-    for index, line in enumerate(lines, start=1):
-        print(f"{index}. {line.strip()}")
-
     while True:
+        print("\nSelect an experiment name:")
+        for index, line in enumerate(lines, start=1):
+            print(f"{index}. {line.strip()}")
         choice = input("\nEnter number or hit enter to choose #1: ") or "1"
+        
         if choice.isdigit():
             choice = int(choice)
             if 1 <= choice <= len(lines):
