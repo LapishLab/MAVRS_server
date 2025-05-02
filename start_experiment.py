@@ -57,9 +57,9 @@ def choose_experiment_from_file():
             if 1 <= choice <= len(lines):
                 return lines[choice - 1].strip()
             else:
-                print("Invalid input. Enter a number within the valid range.")
+                print("\nInvalid input. Enter a number within the valid range.")
         else:
-            print("Invalid input. Please enter a number.")
+            print("\nInvalid input. Please enter a number.")
 
 if __name__ == "__main__":
     main()
