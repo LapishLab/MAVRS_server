@@ -6,5 +6,5 @@ Comment=
 Exec=/home/lapishla/Desktop/MAVRS_server/shutdownPis.sh
 Icon=/home/lapishla/Desktop/MAVRS_server/shortcut_icons/ico/shutdown.ico
 Path=
-Terminal=true
+Terminal=false
 StartupNotify=false
