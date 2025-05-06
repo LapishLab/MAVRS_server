@@ -33,7 +33,7 @@ def get_session_name():
 def create_med_folder(session):
     settings = load_settings()
     med = settings['computers']['med_pc']
-    folder_name = f"{med['data_path_temp']}/{session}/med-pc_{session}"
+    folder_name = f"{med['data_path']}/{session}/med-pc_{session}"
     print(f"Creating MED-PC folder: {folder_name}")
 
     pc_name = f"{med['username']}@{med['address']}"
@@ -66,4 +66,7 @@ def choose_experiment_from_file():
             print("\nInvalid input. Please enter a number.")
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except:
+        input()

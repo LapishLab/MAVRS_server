@@ -3,8 +3,7 @@ computers:
     med_pc:
         username: "lapishla"
         address: "10.1.1.2"
-        data_path_temp: "mnt/c/med_NOW/"
-        data_path: "/mnt/c/med_archive/"
+        data_path: "/mnt/c/AUTO_med/"
     server:
         username: "lapishla"
         address: "10.1.1.0"
