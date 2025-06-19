@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Shutdown Pis
+Comment=
+Exec=/home/lapishla/Desktop/MAVRS_server/shutdownPis.sh
+Icon=/home/lapishla/Desktop/MAVRS_server/shortcut_icons/ico/shutdown.ico
+Path=
+Terminal=false
+StartupNotify=false

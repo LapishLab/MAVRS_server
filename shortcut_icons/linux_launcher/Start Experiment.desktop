@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Start Experiment
+Comment=
+Exec=python3 /home/lapishla/Desktop/MAVRS_server/start_experiment.py
+Icon=/home/lapishla/Desktop/MAVRS_server/shortcut_icons/ico/start.ico
+Path=
+Terminal=true
+StartupNotify=false

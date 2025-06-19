@@ -1,0 +1,14 @@
+---
+computers:
+    med_pc:
+        username: "lapishla"
+        address: "10.1.1.2"
+        data_path: "/mnt/c/AUTO_med/"
+    server:
+        username: "lapishla"
+        address: "10.1.1.0"
+        data_path: "/home/lapishla/Desktop/piData/"
+    backup:
+        username: "lapishla"
+        address: "datastar.psych.indianapolis.iu.edu"
+        data_path: "/research/behavior_rooms/2CAP/"

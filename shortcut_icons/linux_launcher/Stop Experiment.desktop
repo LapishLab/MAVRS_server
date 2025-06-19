@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Stop Experiment
+Comment=
+Exec=python3 /home/lapishla/Desktop/MAVRS_server/stop_experiment.py
+Icon=/home/lapishla/Desktop/MAVRS_server/shortcut_icons/ico/stop.ico
+Path=
+Terminal=true
+StartupNotify=false

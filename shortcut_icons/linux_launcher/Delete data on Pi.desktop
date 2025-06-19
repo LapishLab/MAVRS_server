@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Delete data on Pi
+Comment=
+Exec=/home/lapishla/Desktop/MAVRS_server/nuke.sh
+Icon=/home/lapishla/Desktop/MAVRS_server/shortcut_icons/ico/delete.ico
+Path=
+Terminal=true
+StartupNotify=false
