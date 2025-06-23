@@ -1,6 +1,6 @@
 import subprocess
 import os
-from load_settings import load_settings
+from load_settings import load_settings, load_pi_addresses
 from warnings import warn
 
 def main():
@@ -10,10 +10,13 @@ def main():
 
 def transfer_pis():
     print("Copying data from Pi")
-    server = load_settings()['computers']['server']
+    
+    pi_names = load_pi_addresses()
+    pi_path = f'{pi_names[0]}:/home/pi/MAVRS_pi/data/'
 
-    pi_cmd = f"bash MAVRS_pi/transferData.sh {server['username']} {server['data_path']}"
-    server_cmd = ["cssh", "piCluster", "-a", pi_cmd]
+    server_path = load_settings()['computers']['server']['data_path']
+    
+    server_cmd = ['rsync', '-ah',  '--info=progress2', '--exclude=".*"', pi_path, server_path]
     p = subprocess.run(server_cmd)
 
     if p.returncode != 0:
