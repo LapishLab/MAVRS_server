@@ -2,6 +2,7 @@ import subprocess
 import datetime
 from load_settings import load_settings, load_experiment_names
 import os
+from pathlib import Path
 def main():
     # Change directory for running the following shell scripts 
     os.chdir(os.path.dirname(os.path.realpath(__file__)))
@@ -33,11 +34,25 @@ def get_session_name():
 def create_med_folder(session):
     settings = load_settings()
     med = settings['computers']['med_pc']
-    folder_name = f"{med['data_path']}/{session}/med-pc_{session}"
-    print(f"Creating MED-PC folder: {folder_name}")
+    folder_name = f"/{session}/med-pc_{session}"
+    print(f"Creating MED-PC folder: {med['data_path']}{folder_name}")
 
-    pc_name = f"{med['username']}@{med['address']}"
-    cmd = ["ssh", pc_name, f"mkdir -p /{folder_name}"]
+    remote_data_folder = f"{med['username']}@{med['address']}:{med['data_path']}"
+    create_remote_folder_via_rsync(folder_name, remote_data_folder)
+
+def create_remote_folder_via_rsync(folder, remote): 
+    # Hacky way to create folder on remote PC running rsync without having to deal with Windows vs. Linux OS issues
+    # Create folder locally in home/temp
+    temp_folder = f"{Path.home()}/temp/"
+    cmd = ["mkdir", "-p", f"{temp_folder}{folder}"]
+    subprocess.run(cmd, check=True)
+
+    # Sync local folder to remote
+    cmd = ["rsync", "-ah","--info=progress2", temp_folder, remote]
+    subprocess.run(cmd, check=True)
+
+    # Delete local folder
+    cmd = ["rm", "-rf", temp_folder]
     subprocess.run(cmd, check=True)
 
 def start_pi_recordings(session):
