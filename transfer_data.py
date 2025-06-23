@@ -12,20 +12,37 @@ def transfer_pis():
     print("Copying data from Pi")
     
     pi_names = load_pi_addresses()
-    pi_path = f'{pi_names[0]}:/home/pi/MAVRS_pi/data/'
-
     server_path = load_settings()['computers']['server']['data_path']
-    
-    server_cmd = ['rsync', '-ah',  '--info=progress2', '--exclude=".*"', pi_path, server_path]
-    p = subprocess.run(server_cmd)
 
-    if p.returncode != 0:
+    processes = []
+    for pi in pi_names:
+        pi_path = f'{pi}:/home/pi/MAVRS_pi/data/'
+        cmd = ['rsync', '-ah',  '--info=progress2', '--exclude=".*"', pi_path, server_path]
+        proc = subprocess.Popen(cmd)
+        processes.append(proc)
+
+    failed_transfers = []
+    for ind, proc in enumerate(processes):
+        proc.wait()
+        if (proc.returncode != 0):
+            failed_transfers.append(pi_names[ind])
+    if (len(failed_transfers)==0):
+        print(
+            f"\n-----------------------"
+            f"\nAll data successfully transfered from Pis"
+            f'\nYou can safely delete data from Pis'
+            f'\n------------------------'
+            )
+    else:
         print(
             f"\n----WARNING!!----"
-            f"\nCluster SSH failed to connect to Raspberry Pis."
-            f"\n-----------------"
+            f"\nFailed to copy data from the following Pis"
+            f'\n{failed_transfers}'
+            f'\nDo not delete data from the Pis until this has been resolved'
+            f'\n------------------------'
             )
-        input("Hit enter to close window")
+
+    input("Hit enter to close window")
 
 def transfer_med():
     print("Copying data from MED-PC")
