@@ -22,10 +22,10 @@ def get_session_name():
     while True:
         # exp = input("Enter experiment name: ")
         exp = choose_experiment_from_file()
-        group = input("Enter group number: ")
+        rat = input("Enter rat number: ")
         time_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
-        suggested = f"{time_str}_{exp}_group{group}"
+        suggested = f"{time_str}_{exp}_rat{rat}"
         print(suggested)
         response = input('If the above name is correct, hit enter. If incorrect, type "n" to restart selection: ')
         if not response == "n":
