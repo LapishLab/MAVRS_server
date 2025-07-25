@@ -5,7 +5,6 @@ from warnings import warn
 
 def main():
     transfer_med()
-    input("Hit enter to begin Pi transfer")
     transfer_pis()
 
 def transfer_pis():
