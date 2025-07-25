@@ -15,9 +15,19 @@ def main():
 
     session = get_session_name()
     create_med_folder(session)
+    create_local_folders(session)
     input("Hit enter when ready to start Pi recording")
     start_pi_recordings(session)
 
+def create_local_folders(session):
+    data_path = load_settings()['computers']['server']['data_path']
+    session_path = f"{data_path}/{session}/"
+    print(f"Creating ephys and anymaze folders at: {session_path}")
+    ephys_folder = f"{session_path}/ephys_{session}"
+    subprocess.run(["mkdir", "-p", ephys_folder], check=True)
+    anymaze_folder = f"{session_path}/anymaze_{session}"
+    subprocess.run(["mkdir", "-p", anymaze_folder], check=True)
+    
 def get_session_name():
     while True:
         # exp = input("Enter experiment name: ")
