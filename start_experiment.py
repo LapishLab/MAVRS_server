@@ -7,16 +7,16 @@ def main():
     # Change directory for running the following shell scripts 
     os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
-    print("Setting clock time on Pis")
-    subprocess.run(["./setTime.sh"], check=True)
+    # print("Setting clock time on Pis")
+    # subprocess.run(["./setTime.sh"], check=True)
 
-    print("Reporting disk space on Pis")
-    subprocess.run(["./reportDiskSpace.sh"], check=True)
+    # print("Reporting disk space on Pis")
+    # subprocess.run(["./reportDiskSpace.sh"], check=True)
 
     session = get_session_name()
-    create_med_folder(session)
-    create_local_folders(session)
-    input("Hit enter when ready to start Pi recording")
+    # create_med_folder(session)
+    # create_local_folders(session)
+    # input("Hit enter when ready to start Pi recording")
     start_pi_recordings(session)
 
 def create_local_folders(session):
@@ -68,8 +68,15 @@ def create_remote_folder_via_rsync(folder, remote):
 def start_pi_recordings(session):
     print(f"Starting Pi recordings: {session}")
     pi_session =  f"{session}/pi-data_{session}"
-    pi_cmd = f"python -u MAVRS_pi/startExperiment.py --session {pi_session}"
-    cmd = ["cssh", "piCluster", "-a", pi_cmd]
+    names_file = Path.home() / ".config/MAVRS_server/pi_addresses.txt"
+    pi_cmd = f"nohup python -u MAVRS_pi/startExperiment.py --session {pi_session} &"
+    cmd = [
+        'parallel-ssh',
+        '--timeout', '0',
+        '--hosts', str(names_file),
+        '--inline', '--print',
+        pi_cmd
+        ]
     subprocess.run(cmd, check=True)
 
 def choose_experiment_from_file():
