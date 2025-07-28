@@ -2,6 +2,7 @@ import subprocess
 import os
 from load_settings import load_settings, load_pi_addresses
 from warnings import warn
+from pi_utilities import delete_pi_data
 
 def main():
     transfer_med()
@@ -29,9 +30,10 @@ def transfer_pis():
         print(
             f"\n-----------------------"
             f"\nAll data successfully transfered from Pis"
-            f'\nYou can safely delete data from Pis'
+            f'\nAutomatically deleting data from Pis to free up space'
             f'\n------------------------'
             )
+        delete_pi_data()
     else:
         print(
             f"\n----WARNING!!----"

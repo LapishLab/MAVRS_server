@@ -25,3 +25,7 @@ def set_time_on_pis():
 def report_disk_space():
     print("Reporting disk space on Pis")
     send_pi_command("sh MAVRS_pi/reportDiskSpace.sh")
+
+def delete_pi_data():
+    print("deleting all data from Pis")
+    send_pi_command("bash MAVRS_pi/nuke.sh")
