@@ -7,16 +7,16 @@ def main():
     # Change directory for running the following shell scripts 
     os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
-    # print("Setting clock time on Pis")
-    # subprocess.run(["./setTime.sh"], check=True)
+    print("Setting clock time on Pis")
+    subprocess.run(["./setTime.sh"], check=True)
 
-    # print("Reporting disk space on Pis")
-    # subprocess.run(["./reportDiskSpace.sh"], check=True)
+    print("Reporting disk space on Pis")
+    subprocess.run(["./reportDiskSpace.sh"], check=True)
 
     session = get_session_name()
-    # create_med_folder(session)
-    # create_local_folders(session)
-    # input("Hit enter when ready to start Pi recording")
+    create_med_folder(session)
+    create_local_folders(session)
+    input("Hit enter when ready to start Pi recording")
     start_pi_recordings(session)
 
 def create_local_folders(session):
