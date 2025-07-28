@@ -3,6 +3,8 @@ import datetime
 from load_settings import load_settings, load_experiment_names
 import os
 from pathlib import Path
+import pi_utilities
+
 def main():
     # Change directory for running the following shell scripts 
     os.chdir(os.path.dirname(os.path.realpath(__file__)))
@@ -68,16 +70,8 @@ def create_remote_folder_via_rsync(folder, remote):
 def start_pi_recordings(session):
     print(f"Starting Pi recordings: {session}")
     pi_session =  f"{session}/pi-data_{session}"
-    names_file = Path.home() / ".config/MAVRS_server/pi_addresses.txt"
     pi_cmd = f"nohup python -u MAVRS_pi/startExperiment.py --session {pi_session} &"
-    cmd = [
-        'parallel-ssh',
-        '--timeout', '0',
-        '--hosts', str(names_file),
-        '--inline', '--print',
-        pi_cmd
-        ]
-    subprocess.run(cmd, check=True)
+    pi_utilities.send_pi_command(pi_cmd)
 
 def choose_experiment_from_file():
     lines = load_experiment_names()
