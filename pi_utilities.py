@@ -29,3 +29,7 @@ def report_disk_space():
 def delete_pi_data():
     print("deleting all data from Pis")
     send_pi_command("bash MAVRS_pi/nuke.sh")
+
+def shutdown_pis():
+    print("shutting down Pis")
+    send_pi_command("sudo shutdown now")
