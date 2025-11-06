@@ -13,19 +13,37 @@ def main():
     pi_utilities.report_disk_space()
 
     session = get_session_name()
-    create_med_folder(session)
-    create_local_folders(session)
+    create_other_folders(session)
     input("Hit enter when ready to start Pi recording")
     start_pi_recordings(session)
 
-def create_local_folders(session):
-    data_path = load_settings()['computers']['server']['data_path']
-    session_path = f"{data_path}/{session}/"
-    print(f"Creating ephys and anymaze folders at: {session_path}")
-    ephys_folder = f"{session_path}/ephys_{session}"
-    subprocess.run(["mkdir", "-p", ephys_folder], check=True)
-    anymaze_folder = f"{session_path}/anymaze_{session}"
-    subprocess.run(["mkdir", "-p", anymaze_folder], check=True)
+def create_other_folders(session):
+    local_data = load_settings()['local_data_destination']['data_path']
+
+    folders = load_settings()['other_folders']
+    for label in folders:
+        print(f"creating {label} folder")
+        
+        # create folder in temporary location
+        temp = f"{Path.home()}/temp/"
+        folder_name = f"{session}/{label}_{session}"
+        cmd = ["mkdir", "-p", f"{temp}{folder_name}"]
+        subprocess.run(cmd, check=True)
+
+        # copy folder to destination
+        if folders[label]: # assumed to be remote
+            f = folders[label]
+            dest = f"{f['username']}@{f['address']}:{f['data_path']}/" #TODO check that f contains address/username/data_path
+        else: #assumed to be local
+            dest = f"{local_data}/"
+
+        cmd = ["rsync", "-ah","--info=progress2", temp, dest]
+        subprocess.run(cmd, check=True) #TODO handle, error descriptively
+
+        # Delete temporary folder
+        cmd = ["rm", "-rf", temp]
+        subprocess.run(cmd, check=True)
+        print(f"Created: {dest}")
     
 def get_session_name():
     while True:
@@ -39,30 +57,6 @@ def get_session_name():
         response = input('If the above name is correct, hit enter. If incorrect, type "n" to restart selection: ')
         if not response == "n":
             return suggested
-
-def create_med_folder(session):
-    settings = load_settings()
-    med = settings['computers']['med_pc']
-    folder_name = f"/{session}/med-pc_{session}"
-    print(f"Creating MED-PC folder: {med['data_path']}{folder_name}")
-
-    remote_data_folder = f"{med['username']}@{med['address']}:{med['data_path']}"
-    create_remote_folder_via_rsync(folder_name, remote_data_folder)
-
-def create_remote_folder_via_rsync(folder, remote): 
-    # Hacky way to create folder on remote PC running rsync without having to deal with Windows vs. Linux OS issues
-    # Create folder locally in home/temp
-    temp_folder = f"{Path.home()}/temp/"
-    cmd = ["mkdir", "-p", f"{temp_folder}{folder}"]
-    subprocess.run(cmd, check=True)
-
-    # Sync local folder to remote
-    cmd = ["rsync", "-ah","--info=progress2", temp_folder, remote]
-    subprocess.run(cmd, check=True)
-
-    # Delete local folder
-    cmd = ["rm", "-rf", temp_folder]
-    subprocess.run(cmd, check=True)
 
 def start_pi_recordings(session):
     print(f"Starting Pi recordings: {session}")

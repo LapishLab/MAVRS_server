@@ -5,7 +5,8 @@ from warnings import warn
 from pi_utilities import delete_pi_data
 
 def main():
-    transfer_med()
+    # transfer_med()
+    get_remote_folders()
     transfer_pis()
 
 def transfer_pis():
@@ -65,6 +66,18 @@ def transfer_med():
             )
     else:
         print("Med data successfully transferred")
+
+def get_remote_folders():
+    local_data = load_settings()['local_data_destination']['data_path']
+    folders = load_settings()['other_folders']
+    for label in folders:
+        if folders[label]: # assumed to be remote
+            print(f"Getting {label} folder")
+            f = folders[label]
+            remote = f"{f['username']}@{f['address']}:{f['data_path']}/" #TODO check that f contains address/username/data_path
+
+            cmd = ["rsync", "-ah","--info=progress2", remote, local_data]
+            subprocess.run(cmd, check=True) #TODO handle, error descriptively
 
 if __name__ == "__main__":
     main()
