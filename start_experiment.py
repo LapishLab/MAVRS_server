@@ -4,6 +4,7 @@ from load_settings import load_settings, load_experiment_names
 import os
 from pathlib import Path
 import pi_utilities
+import re
 
 def main():
     # Change directory for running the following shell scripts 
@@ -47,12 +48,26 @@ def create_other_folders(session):
     
 def get_session_name():
     while True:
-        # exp = input("Enter experiment name: ")
-        exp = choose_experiment_from_file()
-        rat = input("Enter rat number: ")
-        time_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        suggested = load_settings()['suggested_name_format']
+        now  =  datetime.datetime.now()
+        suggested = suggested.replace("%date%", now.strftime("%Y-%m-%d"))
+        suggested = suggested.replace("%time%", now.strftime("%H-%M-%S"))
+        
+        if "%experiment%" in suggested:
+            exp = choose_experiment_from_file()
+            suggested = suggested.replace("%experiment%", exp)
+        
+        input_pattern=r"%input.*?%"
+        while re.search(input_pattern, suggested):
+            match = re.search(input_pattern, suggested)
+            sub_match = re.search(r"{.*?}", match.group())
+            if sub_match:
+                label = sub_match.group()[1:-1]
+            else:
+                label = ""
+            val = input(f"Enter {label}: ")
+            suggested = re.sub(input_pattern, val, suggested, count=1)
 
-        suggested = f"{time_str}_{exp}_rat{rat}"
         print(suggested)
         response = input('If the above name is correct, hit enter. If incorrect, type "n" to restart selection: ')
         if not response == "n":
