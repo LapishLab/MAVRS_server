@@ -1,14 +1,19 @@
 ---
-computers:
-    med_pc:
+
+    local_data_destination:
         username: "lapishla"
-        address: "10.1.1.2"
-        data_path: "/mnt/c/AUTO_med/"
-    server:
-        username: "lapishla"
-        address: "10.1.1.0"
-        data_path: "/home/lapishla/Desktop/piData/"
-    backup:
+        address: "10.0.0.0"
+        data_path: "/mnt/c/data/"
+    remote_data_backup:
         username: "lapishla"
         address: "datastar.psych.indianapolis.iu.edu"
-        data_path: "/research/behavior_rooms/2CAP/"
+        data_path: "/research/behavior_rooms/ephys/B/"
+    other_folders:
+        ephys:
+        anymaze:
+        med_pc:
+            username: "lapishla"
+            address: "10.0.0.1"
+            data_path: "/AUTO_med/"
+    suggested_name_format: "%date%_%time%_%experiment%_rat%input{rat number}%"
+

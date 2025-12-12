@@ -3,64 +3,81 @@ import datetime
 from load_settings import load_settings, load_experiment_names
 import os
 from pathlib import Path
+import pi_utilities
+import re
+
 def main():
     # Change directory for running the following shell scripts 
     os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
-    print("Setting clock time on Pis")
-    subprocess.run(["./setTime.sh"], check=True)
-
-    print("Reporting disk space on Pis")
-    subprocess.run(["./reportDiskSpace.sh"], check=True)
+    pi_utilities.set_time_on_pis()
+    pi_utilities.report_disk_space()
 
     session = get_session_name()
-    create_med_folder(session)
+    create_other_folders(session)
     input("Hit enter when ready to start Pi recording")
     start_pi_recordings(session)
 
+def create_other_folders(session):
+    local_data = load_settings()['local_data_destination']['data_path']
+
+    folders = load_settings()['other_folders']
+    for label in folders:
+        print(f"creating {label} folder")
+        
+        # create folder in temporary location
+        temp = f"{Path.home()}/temp/"
+        folder_name = f"{session}/{label}_{session}"
+        cmd = ["mkdir", "-p", f"{temp}{folder_name}"]
+        subprocess.run(cmd, check=True)
+
+        # copy folder to destination
+        if folders[label]: # assumed to be remote
+            f = folders[label]
+            dest = f"{f['username']}@{f['address']}:{f['data_path']}/" #TODO check that f contains address/username/data_path
+        else: #assumed to be local
+            dest = f"{local_data}/"
+
+        cmd = ["rsync", "-ah","--info=progress2", temp, dest]
+        subprocess.run(cmd, check=True) #TODO handle, error descriptively
+
+        # Delete temporary folder
+        cmd = ["rm", "-rf", temp]
+        subprocess.run(cmd, check=True)
+        print(f"Created: {dest}")
+    
 def get_session_name():
     while True:
-        # exp = input("Enter experiment name: ")
-        exp = choose_experiment_from_file()
-        group = input("Enter group number: ")
-        time_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        suggested = load_settings()['suggested_name_format']
+        now  =  datetime.datetime.now()
+        suggested = suggested.replace("%date%", now.strftime("%Y-%m-%d"))
+        suggested = suggested.replace("%time%", now.strftime("%H-%M-%S"))
+        
+        if "%experiment%" in suggested:
+            exp = choose_experiment_from_file()
+            suggested = suggested.replace("%experiment%", exp)
+        
+        input_pattern=r"%input.*?%"
+        while re.search(input_pattern, suggested):
+            match = re.search(input_pattern, suggested)
+            sub_match = re.search(r"{.*?}", match.group())
+            if sub_match:
+                label = sub_match.group()[1:-1]
+            else:
+                label = ""
+            val = input(f"Enter {label}: ")
+            suggested = re.sub(input_pattern, val, suggested, count=1)
 
-        suggested = f"{time_str}_{exp}_group{group}"
         print(suggested)
         response = input('If the above name is correct, hit enter. If incorrect, type "n" to restart selection: ')
         if not response == "n":
             return suggested
 
-def create_med_folder(session):
-    settings = load_settings()
-    med = settings['computers']['med_pc']
-    folder_name = f"/{session}/med-pc_{session}"
-    print(f"Creating MED-PC folder: {med['data_path']}{folder_name}")
-
-    remote_data_folder = f"{med['username']}@{med['address']}:{med['data_path']}"
-    create_remote_folder_via_rsync(folder_name, remote_data_folder)
-
-def create_remote_folder_via_rsync(folder, remote): 
-    # Hacky way to create folder on remote PC running rsync without having to deal with Windows vs. Linux OS issues
-    # Create folder locally in home/temp
-    temp_folder = f"{Path.home()}/temp/"
-    cmd = ["mkdir", "-p", f"{temp_folder}{folder}"]
-    subprocess.run(cmd, check=True)
-
-    # Sync local folder to remote
-    cmd = ["rsync", "-ah","--info=progress2", temp_folder, remote]
-    subprocess.run(cmd, check=True)
-
-    # Delete local folder
-    cmd = ["rm", "-rf", temp_folder]
-    subprocess.run(cmd, check=True)
-
 def start_pi_recordings(session):
     print(f"Starting Pi recordings: {session}")
     pi_session =  f"{session}/pi-data_{session}"
-    pi_cmd = f"python -u MAVRS_pi/startExperiment.py --session {pi_session}"
-    cmd = ["cssh", "piCluster", "-a", pi_cmd]
-    subprocess.run(cmd, check=True)
+    pi_cmd = f"nohup python -u MAVRS_pi/startExperiment.py --session {pi_session} &"
+    pi_utilities.send_pi_command(pi_cmd)
 
 def choose_experiment_from_file():
     lines = load_experiment_names()
