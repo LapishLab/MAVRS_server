@@ -1,13 +1,12 @@
 import subprocess
 import datetime
-from pathlib import Path
+from load_settings import pi_address_file
 
 def send_pi_command(pi_cmd):
-    names_file = Path.home() / ".config/MAVRS_server/pi_addresses.txt"
     cmd = [
         'parallel-ssh',
         '--timeout', '0',
-        '--hosts', str(names_file),
+        '--hosts', str(pi_address_file()),
         '--print',
         pi_cmd
     ]

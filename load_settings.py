@@ -17,8 +17,11 @@ def load_experiment_names():
         lines = file.readlines()
     return lines
 
+def pi_address_file():
+    return settings_folder()/"pi_addresses.txt"
+
 def load_pi_addresses():
-    names_file = settings_folder()/"pi_addresses.txt"
+    names_file = pi_address_file()
     with open(names_file, 'r') as file:
         names = file.read().splitlines()
     return names
