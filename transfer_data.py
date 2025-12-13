@@ -5,7 +5,6 @@ from warnings import warn
 from pi_utilities import delete_pi_data
 
 def main():
-    # transfer_med()
     get_remote_folders()
     transfer_pis()
 
@@ -45,27 +44,6 @@ def transfer_pis():
             )
 
     input("Hit enter to close window")
-
-def transfer_med():
-    print("Copying data from MED-PC")
-    
-    computers = load_settings()['computers']
-    med = computers['med_pc']
-    med_data = f"{med['username']}@{med['address']}:{med['data_path']}"
-    local_data = computers['server']['data_path']
-    cmd = ["rsync", "-ah","--info=progress2", med_data, local_data]
-    p = subprocess.run(cmd)
-
-    if p.returncode != 0:
-        print(
-            f"\n----WARNING!!----"
-            f"\nMed data failed to transfer."
-            f"\nCheck ethernet connections to network switch and med computer." 
-            f"\nVerify WSL instance is running on med computer." 
-            f"\n-----------------"
-            )
-    else:
-        print("Med data successfully transferred")
 
 def get_remote_folders():
     local_data = load_settings()['local_data_destination']['data_path']
