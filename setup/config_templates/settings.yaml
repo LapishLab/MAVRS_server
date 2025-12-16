@@ -1,19 +1,9 @@
 ---
-
-    local_data_destination:
-        username: "lapishla"
-        address: "10.0.0.0"
-        data_path: "/mnt/c/data/"
-    remote_data_backup:
-        username: "lapishla"
-        address: "datastar.psych.indianapolis.iu.edu"
-        data_path: "/research/behavior_rooms/ephys/B/"
+    local_data_path: "/mnt/c/data/"
+    backup_data_path: "lapishla@datastar.psych.indianapolis.iu.edu:/research/behavior_rooms/ephys/B/"
     other_folders:
         ephys:
         anymaze:
-        med_pc:
-            username: "lapishla"
-            address: "10.0.0.1"
-            data_path: "/AUTO_med/"
+        med_pc: "lapishla@10.0.0.1:/AUTO_med/"
     suggested_name_format: "%date%_%time%_%experiment%_rat%input{rat number}%"
 

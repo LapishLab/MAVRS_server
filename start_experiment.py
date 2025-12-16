@@ -19,24 +19,21 @@ def main():
     start_pi_recordings(session)
 
 def create_other_folders(session):
-    local_data = load_settings()['local_data_destination']['data_path']
-
     folders = load_settings()['other_folders']
     for label in folders:
         print(f"creating {label} folder")
         
         # create folder in temporary location
-        temp = f"{Path.home()}/temp/"
+        temp = f"{Path.home()}/.temp/"
         folder_name = f"{session}/{label}_{session}"
         cmd = ["mkdir", "-p", f"{temp}{folder_name}"]
         subprocess.run(cmd, check=True)
 
         # copy folder to destination
         if folders[label]: # assumed to be remote
-            f = folders[label]
-            dest = f"{f['username']}@{f['address']}:{f['data_path']}/" #TODO check that f contains address/username/data_path
+            dest = folders[label]
         else: #assumed to be local
-            dest = f"{local_data}/"
+            dest = load_settings()['local_data_path']
 
         cmd = ["rsync", "-ah","--info=progress2", temp, dest]
         subprocess.run(cmd, check=True) #TODO handle, error descriptively
@@ -44,7 +41,7 @@ def create_other_folders(session):
         # Delete temporary folder
         cmd = ["rm", "-rf", temp]
         subprocess.run(cmd, check=True)
-        print(f"Created: {dest}")
+        print(f"Created: {dest}/{folder_name}")
     
 def get_session_name():
     while True:

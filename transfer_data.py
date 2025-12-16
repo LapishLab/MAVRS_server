@@ -12,7 +12,7 @@ def transfer_pis():
     print("Copying data from Pi")
     
     pi_names = load_pi_addresses()
-    server_path = load_settings()['local_data_destination']['data_path']
+    server_path = load_settings()['local_data_path']
 
     processes = []
     for pi in pi_names:
@@ -46,14 +46,12 @@ def transfer_pis():
     input("Hit enter to close window")
 
 def get_remote_folders():
-    local_data = load_settings()['local_data_destination']['data_path']
+    local_data = load_settings()['local_data_path']
     folders = load_settings()['other_folders']
     for label in folders:
         if folders[label]: # assumed to be remote
             print(f"Getting {label} folder")
-            f = folders[label]
-            remote = f"{f['username']}@{f['address']}:{f['data_path']}/" #TODO check that f contains address/username/data_path
-
+            remote = f"{folders[label]}" 
             cmd = ["rsync", "-ah","--info=progress2", remote, local_data]
             subprocess.run(cmd, check=True) #TODO handle, error descriptively
 
