@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 from yaml import full_load
-# from os.path import dirname, realpath, join
 from pathlib import Path
 
 def settings_folder():

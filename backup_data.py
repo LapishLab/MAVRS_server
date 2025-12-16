@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from load_settings import load_settings
-import subprocess
+from subprocess import run
 
 def backup_data():
     print("backing up data")
@@ -8,7 +8,7 @@ def backup_data():
     backup_data = load_settings()['backup_data_path']
 
     cmd = ["rsync", "-ah","--info=progress2", local_path, backup_data]
-    p = subprocess.run(cmd)
+    p = run(cmd)
 
     if p.returncode != 0:
         print(

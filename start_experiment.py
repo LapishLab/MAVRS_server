@@ -1,18 +1,14 @@
 #!/usr/bin/env python3
-import subprocess
-import datetime
+from subprocess import run
+from datetime import datetime
 from load_settings import load_settings, load_experiment_names
-import os
 from pathlib import Path
-import pi_utilities
-import re
+from pi_utilities import set_time_on_pis, report_disk_space, send_pi_command
+from re import search, sub
 
 def main():
-    # Change directory for running the following shell scripts 
-    os.chdir(os.path.dirname(os.path.realpath(__file__)))
-
-    pi_utilities.set_time_on_pis()
-    pi_utilities.report_disk_space()
+    set_time_on_pis()
+    report_disk_space()
 
     session = get_session_name()
     create_other_folders(session)
@@ -28,7 +24,7 @@ def create_other_folders(session):
         temp = f"{Path.home()}/.temp/"
         folder_name = f"{session}/{label}_{session}"
         cmd = ["mkdir", "-p", f"{temp}{folder_name}"]
-        subprocess.run(cmd, check=True)
+        run(cmd, check=True)
 
         # copy folder to destination
         if folders[label]: # assumed to be remote
@@ -37,17 +33,17 @@ def create_other_folders(session):
             dest = load_settings()['local_data_path']
 
         cmd = ["rsync", "-ah","--info=progress2", temp, dest]
-        subprocess.run(cmd, check=True) #TODO handle, error descriptively
+        run(cmd, check=True) #TODO handle, error descriptively
 
         # Delete temporary folder
         cmd = ["rm", "-rf", temp]
-        subprocess.run(cmd, check=True)
+        run(cmd, check=True)
         print(f"Created: {dest}/{folder_name}")
     
 def get_session_name():
     while True:
         suggested = load_settings()['suggested_name_format']
-        now  =  datetime.datetime.now()
+        now = datetime.now()
         suggested = suggested.replace("%date%", now.strftime("%Y-%m-%d"))
         suggested = suggested.replace("%time%", now.strftime("%H-%M-%S"))
         
@@ -56,15 +52,15 @@ def get_session_name():
             suggested = suggested.replace("%experiment%", exp)
         
         input_pattern=r"%input.*?%"
-        while re.search(input_pattern, suggested):
-            match = re.search(input_pattern, suggested)
-            sub_match = re.search(r"{.*?}", match.group())
+        while search(input_pattern, suggested):
+            match = search(input_pattern, suggested)
+            sub_match = search(r"{.*?}", match.group())
             if sub_match:
                 label = sub_match.group()[1:-1]
             else:
                 label = ""
             val = input(f"Enter {label}: ")
-            suggested = re.sub(input_pattern, val, suggested, count=1)
+            suggested = sub(input_pattern, val, suggested, count=1)
 
         print(suggested)
         response = input('If the above name is correct, hit enter. If incorrect, type "n" to restart selection: ')
@@ -75,7 +71,7 @@ def start_pi_recordings(session):
     print(f"Starting Pi recordings: {session}")
     pi_session =  f"{session}/pi-data_{session}"
     pi_cmd = f"nohup python -u MAVRS_pi/startExperiment.py --session {pi_session} &"
-    pi_utilities.send_pi_command(pi_cmd)
+    send_pi_command(pi_cmd)
 
 def choose_experiment_from_file():
     lines = load_experiment_names()

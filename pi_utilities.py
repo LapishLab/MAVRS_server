@@ -1,5 +1,5 @@
-import subprocess
-import datetime
+from subprocess import run
+from datetime import datetime
 from load_settings import pi_address_file
 
 def send_pi_command(pi_cmd):
@@ -10,11 +10,11 @@ def send_pi_command(pi_cmd):
         '--print',
         pi_cmd
     ]
-    subprocess.run(cmd, check=True)
+    run(cmd, check=True)
 
 def set_time_on_pis():
     print("Setting clock time on Pis")
-    now = datetime.datetime.now()
+    now = datetime.now()
     day = now.strftime("%Y-%m-%d")
     time_str = now.strftime("%H:%M:%S")
     print(f"setting time on all Pis to {day} {time_str}")

@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
-import subprocess
-import os
+from subprocess import run, Popen
 from load_settings import load_settings, load_pi_addresses
-from warnings import warn
 from pi_utilities import delete_pi_data
 
 def main():
@@ -19,7 +17,7 @@ def transfer_pis():
     for pi in pi_names:
         pi_path = f'{pi}:/home/pi/MAVRS_pi/data/'
         cmd = ['rsync', '-ah',  '--info=progress2', '--exclude=".*"', pi_path, server_path]
-        proc = subprocess.Popen(cmd)
+        proc = Popen(cmd)
         processes.append(proc)
 
     failed_transfers = []
@@ -54,7 +52,7 @@ def get_remote_folders():
             print(f"Getting {label} folder")
             remote = f"{folders[label]}" 
             cmd = ["rsync", "-ah","--info=progress2", remote, local_data]
-            subprocess.run(cmd, check=True) #TODO handle, error descriptively
+            run(cmd, check=True) #TODO handle, error descriptively
 
 if __name__ == "__main__":
     main()
