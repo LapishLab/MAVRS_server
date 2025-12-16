@@ -1,1 +1,3 @@
-pi@10.0.0.2
+# comments are allowed
+pi@10.0.0.2 # nice comment
+# pi@10.0.0.3 # This Pi won't be contacted

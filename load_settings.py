@@ -12,19 +12,22 @@ def load_settings():
     return settings
 
 def load_experiment_names():
-    names_file = settings_folder()/"experiment_names.txt"
-    with open(names_file, "r") as file:
-        lines = file.readlines()
-    return lines
+    file = settings_folder()/"experiment_names.txt"
+    return read_lines(file)
 
 def pi_address_file():
     return settings_folder()/"pi_addresses.txt"
 
 def load_pi_addresses():
-    names_file = pi_address_file()
-    with open(names_file, 'r') as file:
-        names = file.read().splitlines()
-    return names
+    file = pi_address_file()
+    return read_lines(file)
+
+def read_lines(file):
+    with open(file, "r") as f:
+        lines = f.readlines()
+    lines = [l.partition('#')[0].strip() for l in lines] # remove any thing after '#' character
+    lines = [l for l in lines if l] #remove empty lines
+    return lines
 
 def test():
     settings = load_settings()
