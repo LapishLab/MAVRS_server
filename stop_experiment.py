@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import subprocess
 from load_settings import load_settings
 import transfer_data

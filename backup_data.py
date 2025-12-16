@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from load_settings import load_settings
 import subprocess
 

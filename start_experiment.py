@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import subprocess
 import datetime
 from load_settings import load_settings, load_experiment_names
