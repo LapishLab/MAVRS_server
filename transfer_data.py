@@ -12,7 +12,7 @@ def transfer_pis():
     print("Copying data from Pi")
     
     pi_names = load_pi_addresses()
-    server_path = load_settings()['computers']['server']['data_path']
+    server_path = load_settings()['local_data_destination']['data_path']
 
     processes = []
     for pi in pi_names:

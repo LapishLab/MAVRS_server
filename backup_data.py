@@ -3,13 +3,11 @@ import subprocess
 
 def backup_data():
     print("backing up data")
-    computers = load_settings()['computers']
-
-    local_data = computers['server']['data_path']
-    backup = computers['backup']
+    local_path = load_settings()['local_data_destination']['data_path']
+    backup = load_settings()['remote_data_backup']
     backup_data = f"{backup['username']}@{backup['address']}:{backup['data_path']}"
 
-    cmd = ["rsync", "-ah","--info=progress2", local_data, backup_data]
+    cmd = ["rsync", "-ah","--info=progress2", local_path, backup_data]
     p = subprocess.run(cmd)
 
     if p.returncode != 0:
