@@ -92,7 +92,4 @@ def choose_experiment_from_file():
             print("\nInvalid input. Please enter a number.")
 
 if __name__ == "__main__":
-    try:
-        main()
-    except:
-        input()
+    main()
