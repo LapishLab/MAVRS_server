@@ -4,10 +4,14 @@ from subprocess import run
 
 def backup_data():
     print("backing up data")
-    local_path = load_settings()['local_data_path']
-    backup_data = load_settings()['backup_data_path']
+    settings = load_settings()
+    local_path = settings.local_data_path
+    backup_path = settings.backup_data_path
 
-    cmd = ["rsync", "-ah","--info=progress2", local_path, backup_data]
+    if not backup_path:
+        raise RuntimeError("Missing required setting: 'backup_data_path'")
+
+    cmd = ["rsync", "-ah","--info=progress2", local_path, backup_path]
     p = run(cmd)
 
     if p.returncode != 0:

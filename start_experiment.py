@@ -10,13 +10,15 @@ def main():
     set_time_on_pis()
     report_disk_space()
 
-    session = get_session_name()
-    create_other_folders(session)
+    settings = load_settings()
+
+    session = get_session_name(settings)
+    create_other_folders(session, settings)
     input("Hit enter when ready to start Pi recording")
     start_pi_recordings(session)
 
-def create_other_folders(session):
-    folders = load_settings()['other_folders']
+def create_other_folders(session, settings):
+    folders = settings.other_folders
     for label in folders:
         print(f"creating {label} folder")
         
@@ -30,7 +32,7 @@ def create_other_folders(session):
         if folders[label]: # assumed to be remote
             dest = folders[label]
         else: #assumed to be local
-            dest = load_settings()['local_data_path']
+            dest = settings.local_data_path
 
         cmd = ["rsync", "-ah","--info=progress2", temp, dest]
         run(cmd, check=True) #TODO handle, error descriptively
@@ -40,9 +42,9 @@ def create_other_folders(session):
         run(cmd, check=True)
         print(f"Created: {dest}/{folder_name}")
     
-def get_session_name():
+def get_session_name(settings):
     while True:
-        suggested = load_settings()['suggested_name_format']
+        suggested = settings.suggested_name_format
         now = datetime.now()
         suggested = suggested.replace("%date%", now.strftime("%Y-%m-%d"))
         suggested = suggested.replace("%time%", now.strftime("%H-%M-%S"))

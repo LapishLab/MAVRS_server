@@ -9,9 +9,10 @@ def main():
 
 def transfer_pis():
     print("Copying data from Pi")
-    
+    settings = load_settings()
+
     pi_names = load_pi_addresses()
-    server_path = load_settings()['local_data_path']
+    server_path = settings.local_data_path
 
     processes = []
     for pi in pi_names:
@@ -45,8 +46,10 @@ def transfer_pis():
     input("Hit enter to close window")
 
 def get_remote_folders():
-    local_data = load_settings()['local_data_path']
-    folders = load_settings()['other_folders']
+    settings = load_settings()
+
+    local_data = settings.local_data_path
+    folders = settings.other_folders
     for label in folders:
         if folders[label]: # assumed to be remote
             print(f"Getting {label} folder")

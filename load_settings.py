@@ -1,15 +1,32 @@
 #!/usr/bin/env python3
-from yaml import full_load
+import yaml 
 from pathlib import Path
+from typing import Dict, Optional
+from pydantic import BaseModel
 
 def settings_folder():
     return Path.home() / "MAVRS_settings"
 
 def load_settings():
     settings_file = settings_folder()/"settings.yaml"
-    with open(settings_file, 'r') as f:
-        settings = full_load(f)
-    return settings
+    try:
+        with open(settings_file, 'r') as f:
+            settings = yaml.safe_load(f)
+    except yaml.YAMLError as exc:
+        raise RuntimeError(f"Error parsing YAML: {exc}")
+    except FileNotFoundError:
+        raise RuntimeError(f"File not found: {settings_file}")
+    except Exception as e:
+        raise RuntimeError(f"An unexpected error occurred when loading {settings_file}: {e}")
+    
+    validated = Settings.parse_obj(settings)
+    return validated
+
+class Settings(BaseModel):
+    local_data_path: str
+    other_folders: Dict[str, Optional[str]]
+    suggested_name_format: Optional[str] = "%date%_%time%_%experiment%_rat%input{rat number}%"
+    backup_data_path: Optional[str]
 
 def load_experiment_names():
     file = settings_folder()/"experiment_names.txt"
