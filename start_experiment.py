@@ -13,7 +13,8 @@ def main():
     settings = load_settings()
 
     session = get_session_name(settings)
-    create_other_folders(session, settings)
+    if settings.other_folders:
+        create_other_folders(session, settings)
     input("Hit enter when ready to start Pi recording")
     start_pi_recordings(session)
 

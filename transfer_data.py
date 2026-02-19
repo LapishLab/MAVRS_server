@@ -4,12 +4,13 @@ from load_settings import load_settings, load_pi_addresses
 from pi_utilities import delete_pi_data
 
 def main():
-    get_remote_folders()
-    transfer_pis()
-
-def transfer_pis():
-    print("Copying data from Pi")
     settings = load_settings()
+    if settings.other_folders:
+        get_remote_folders(settings)
+    transfer_pis(settings)
+
+def transfer_pis(settings):
+    print("Copying data from Pi")
 
     pi_names = load_pi_addresses()
     server_path = settings.local_data_path
@@ -45,9 +46,7 @@ def transfer_pis():
 
     input("Hit enter to close window")
 
-def get_remote_folders():
-    settings = load_settings()
-
+def get_remote_folders(settings):
     local_data = settings.local_data_path
     folders = settings.other_folders
     for label in folders:

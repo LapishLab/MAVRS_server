@@ -24,7 +24,7 @@ def load_settings():
 
 class Settings(BaseModel):
     local_data_path: str
-    other_folders: Dict[str, Optional[str]]
+    other_folders: Optional[Dict[Optional[str], Optional[str]]]
     suggested_name_format: Optional[str] = "%date%_%time%_%experiment%_rat%input{rat number}%"
     backup_data_path: Optional[str]
 
