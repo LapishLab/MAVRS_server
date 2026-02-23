@@ -12,6 +12,14 @@ def send_pi_command(pi_cmd):
     ]
     run(cmd, check=True)
 
+def send_individual_pi_command(pi_cmd, pi_name):
+    cmd = [
+        'ssh',
+        pi_name,
+        pi_cmd
+    ]
+    run(cmd, check=True)
+
 def set_time_on_pis():
     print("Setting clock time on Pis")
     now = datetime.now()
