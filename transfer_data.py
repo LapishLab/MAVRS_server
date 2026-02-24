@@ -27,7 +27,7 @@ def transfer_pis(settings):
         log_files.append(log)
         cmd = ['rsync', '-ah',  '--info=progress2', '--exclude=".*"',
                pi_path, server_path,
-               f'--log-file={log}', '--log-file-format=""']
+               f'--log-file={log}', '--log-file-format="%n"']
         proc = Popen(cmd)
         processes.append(proc)
 
@@ -38,6 +38,7 @@ def transfer_pis(settings):
             print(f'\nSuccessfully transfered data from {pi_names[ind]}: Automatically deleting data')
             try:
                 scanned_folders = parse_log(log_files[ind])
+                Path(log_files[ind]).unlink() # delete log file
                 scanned_folders = [f'{pi_data_path}{f}' for f in scanned_folders]
                 pi_cmd = 'rm -rf ' + ' '.join(scanned_folders)
                 send_individual_pi_command(pi_cmd, pi_names[ind])
@@ -101,6 +102,7 @@ def parse_log(log_file):
 
     # Parse the lines to find the top-level items
     items = [l.strip().split()[3] for l in lines] # The file/folder name is the 4th item in the line
+    items = [l.strip('"') for l in items] # Remove any surrounding quotes
     top_level = [Path(l).parts[0] for l in items] # Get the top-level folder (the first part of the path)
     top_level = list(set(top_level)) # Get only unique items
     return top_level
