@@ -35,6 +35,12 @@ def load_experiment_names():
 def pi_address_file():
     return settings_folder()/"pi_addresses.txt"
 
+def transfer_logs_dir():
+    log_dir = settings_folder()/'logs'
+    log_dir.mkdir(exist_ok=True)
+    return log_dir
+    
+
 def load_pi_addresses():
     file = pi_address_file()
     return read_lines(file)

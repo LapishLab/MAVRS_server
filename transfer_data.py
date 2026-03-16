@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 from subprocess import run, Popen
-from load_settings import load_settings, load_pi_addresses
+from load_settings import load_settings, load_pi_addresses, transfer_logs_dir
 from pi_utilities import send_individual_pi_command
 from warnings import warn
 import re
 from pathlib import Path
+
+from datetime import datetime
 
 def main():
     settings = load_settings()
@@ -20,10 +22,12 @@ def transfer_pis(settings):
 
     processes = []
     log_files = []
+    log_dir = transfer_logs_dir()
+    now = datetime.now().strftime('%Y%m%d_%H%M%S')
     for pi in pi_names:
         pi_data_path = f'/home/pi/MAVRS_pi/data/'
         pi_path = f'{pi}:{pi_data_path}'
-        log = f'{server_path}/{pi}_transfer_log.txt'
+        log = log_dir / f'{now}_{pi}_rsync.log' 
         log_files.append(log)
         cmd = ['rsync', '-ah',  '--info=progress2', '--exclude=".*"',
                pi_path, server_path,
@@ -38,7 +42,7 @@ def transfer_pis(settings):
             print(f'\nSuccessfully transfered data from {pi_names[ind]}: Automatically deleting data')
             try:
                 scanned_folders = parse_log(log_files[ind])
-                Path(log_files[ind]).unlink() # delete log file
+                log_files[ind].unlink() # delete log file
                 scanned_folders = [f'{pi_data_path}{f}' for f in scanned_folders]
                 pi_cmd = 'rm -rf ' + ' '.join(scanned_folders)
                 send_individual_pi_command(pi_cmd, pi_names[ind])
