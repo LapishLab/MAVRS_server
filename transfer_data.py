@@ -5,6 +5,7 @@ from pi_utilities import send_individual_pi_command
 from warnings import warn
 import re
 from pathlib import Path
+from time import sleep
 
 from datetime import datetime
 
@@ -41,6 +42,7 @@ def transfer_pis(settings):
         if (proc.returncode == 0):
             print(f'\nSuccessfully transfered data from {pi_names[ind]}: Automatically deleting data')
             try:
+                sleep(1) # Sleep to ensure log file is fully written before parsing
                 scanned_folders = parse_log(log_files[ind])
                 log_files[ind].unlink() # delete log file
                 scanned_folders = [f'{pi_data_path}{f}' for f in scanned_folders]
