@@ -26,7 +26,6 @@ def backup_data():
             f"\nData has been backed up to Datastar"
             f"\n-----------------------"
         )
-    input("\nHit enter to close window")
 
 if __name__ == "__main__":
     backup_data()

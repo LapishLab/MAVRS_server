@@ -65,8 +65,6 @@ def transfer_pis(settings):
             f'\n------------------------'
             )
 
-    input("Hit enter to close window")
-
 def get_remote_folders(settings):
     local_data = settings.local_data_path
     folders = settings.other_folders
