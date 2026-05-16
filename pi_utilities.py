@@ -1,5 +1,4 @@
 from datetime import datetime
-from path_config import PI_ADDRESS_FILE
 from load_settings import load_pi_addresses
 from fabric import Connection
 from fabric.group import SerialGroup

@@ -5,7 +5,6 @@ from load_settings import load_settings, load_experiment_names, Settings
 from pathlib import Path
 from pi_utilities import set_time_on_pis, report_disk_space, send_pi_command
 from re import search, sub
-from typing import Optional
 
 def main() -> None:
     set_time_on_pis()
