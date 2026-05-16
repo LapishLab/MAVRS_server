@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
-from subprocess import run, Popen
+from subprocess import run, Popen, PIPE
 from load_settings import load_settings, load_pi_addresses, Settings
-from path_config import LOG_FOLDER
 from pi_utilities import send_individual_pi_command
 from warnings import warn
-import re
 from pathlib import Path
-from time import sleep
 from typing import List, Union
 from datetime import datetime
 
@@ -22,36 +19,35 @@ def transfer_pis(settings: Settings) -> None:
     pi_names = load_pi_addresses()
     server_path = settings.local_data_path
 
-    processes = []
-    log_files = []
-    now = datetime.now().strftime('%Y%m%d_%H%M%S')
+    processes: List[tuple[Popen, str, str]] = []
     for pi in pi_names:
         pi_data_path = f'/home/pi/MAVRS_pi/data/'
         pi_path = f'{pi}:{pi_data_path}'
-        log = LOG_FOLDER / f'{now}_{pi}_rsync.log' 
-        log_files.append(log)
-        cmd = ['rsync', '-ah',  '--info=progress2', '--exclude=".*"',
-               pi_path, server_path,
-               f'--log-file={log}', '--log-file-format="%n"']
-        proc = Popen(cmd)
-        processes.append(proc)
+        # Use --out-format to print transferred file/dir names to stdout
+        cmd = [
+            'rsync', '-ah', '--info=progress2', '--exclude=.*',
+            f"--out-format=%n",
+            pi_path, server_path
+        ]
+        proc = Popen(cmd, stdout=PIPE, stderr=PIPE, text=True)
+        processes.append((proc, pi, pi_data_path))
 
     failed_transfers: List[str] = []
-    for ind, proc in enumerate(processes):
-        proc.wait()
-        if (proc.returncode == 0):
-            print(f'\nSuccessfully transfered data from {pi_names[ind]}: Automatically deleting data')
+    for proc, pi_name, pi_data_path in processes:
+        stdout, stderr = proc.communicate()
+        if proc.returncode == 0:
+            print(f'\nSuccessfully transfered data from {pi_name}: Automatically deleting data')
             try:
-                sleep(1) # Sleep to ensure log file is fully written before parsing
-                scanned_folders = parse_log(log_files[ind])
-                log_files[ind].unlink() # delete log file
+                scanned_folders = parse_rsync_stdout(stdout)
                 scanned_folders = [f'{pi_data_path}{f}' for f in scanned_folders]
-                pi_cmd = 'rm -rf ' + ' '.join(scanned_folders)
-                send_individual_pi_command(pi_cmd, pi_names[ind])
+                if scanned_folders:
+                    pi_cmd = 'rm -rf ' + ' '.join(scanned_folders)
+                    send_individual_pi_command(pi_cmd, pi_name)
             except Exception as e:
-                warn(f"\nError automatically deleting data from {pi_names[ind]}: {e} \nYou will need to manually delete data from this Pi if this issue is not resolved")
+                warn(f"\nError automatically deleting data from {pi_name}: {e} \nYou will need to manually delete data from this Pi if this issue is not resolved")
         else:
-            failed_transfers.append(pi_names[ind])
+            warn(f"Rsync failed for {pi_name}: {stderr}")
+            failed_transfers.append(pi_name)
     if (len(failed_transfers)==0):
         print(
             f"\n-----------------------"
@@ -69,46 +65,30 @@ def transfer_pis(settings: Settings) -> None:
 
 def get_remote_folders(settings: Settings) -> None:
     local_data = settings.local_data_path
-    folders = settings.other_folders
+    folders = settings.other_folders or {}
     for label in folders:
-        if folders[label]: # assumed to be remote
+        val = folders[label]
+        if val:  # assumed to be remote
             print(f"Getting {label} folder")
-            remote = f"{folders[label]}" 
+            remote = f"{val}"
             cmd = ["rsync", "-ah","--info=progress2", remote, local_data]
-            run(cmd, check=True) #TODO handle, error descriptively
+            run(cmd, check=True)  # TODO handle, error descriptively
 
-def parse_log(log_file: Union[str, Path]) -> List[str]:
+def parse_rsync_stdout(output: str) -> List[str]:
     """
-    Parses an rsync log file and returns a list of top-level files/folders scanned by rsync.
-    """ 
-    with open(log_file) as f:
-        lines = f.readlines()
-    
-    # Find the line where the file list starts
-    start_pat = 'receiving file list\n'
-    start_line = [i for i, l in enumerate(lines) if re.search(start_pat, l)]
-    if len(start_line)==0:
-        raise ValueError(f"Cannot parse rsync log file: {log_file} \nCannot find starting pattern: {start_pat}")
-    elif len(start_line) > 1:
-        warn(f"Parsing rsync log file found multiple lines with the starting pattern, using last match: {log_file}")
-    start_line = start_line[-1] + 2 # Skip the "receiving file list" line and the next line which is the root directory (./)
-    lines = lines[start_line:]
-
-    # Find the line where the file list ends, which is the summary line starting with "sent [number] bytes  received [number] bytes  total size [number]"
-    stop_pat = 'sent [0-9]* bytes  received [0-9]* bytes  total size [0-9]*\n'
-    stop_line = [i for i, l in enumerate(lines) if re.search(stop_pat, l)]
-    if len(stop_line)==0:
-        raise ValueError(f"Cannot parse rsync log file: {log_file} \nCannot find stopping pattern: {stop_pat}")
-    elif len(stop_line) > 1:
-        warn(f"Parsing rsync log file found multiple lines with the stopping pattern, using first match: {log_file}")
-    stop_line = stop_line[0]
-    lines = lines[:stop_line]
-
-    # Parse the lines to find the top-level items
-    items = [l.strip().split()[3] for l in lines] # The file/folder name is the 4th item in the line
-    items = [l.strip('"') for l in items] # Remove any surrounding quotes
-    top_level = [Path(l).parts[0] for l in items] # Get the top-level folder (the first part of the path)
-    top_level = list(set(top_level)) # Get only unique items
+    Parse rsync stdout produced with `--out-format=%n` and return unique top-level paths.
+    """
+    lines = [l.strip() for l in output.splitlines() if l.strip()]
+    # Remove any surrounding quotes
+    items = [l.strip('"') for l in lines]
+    top_level = []
+    for it in items:
+        try:
+            first = Path(it).parts[0]
+        except Exception:
+            continue
+        if first not in top_level:
+            top_level.append(first)
     return top_level
 
 if __name__ == "__main__":
