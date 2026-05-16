@@ -2,7 +2,7 @@
 from load_settings import load_settings
 from subprocess import run
 
-def backup_data():
+def backup_data() -> None:
     print("backing up data")
     settings = load_settings()
     local_path = settings.local_data_path

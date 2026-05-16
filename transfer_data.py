@@ -1,21 +1,22 @@
 #!/usr/bin/env python3
 from subprocess import run, Popen
-from load_settings import load_settings, load_pi_addresses, transfer_logs_dir
+from load_settings import load_settings, load_pi_addresses, transfer_logs_dir, Settings
 from pi_utilities import send_individual_pi_command
 from warnings import warn
 import re
 from pathlib import Path
 from time import sleep
+from typing import List, Union
 
 from datetime import datetime
 
-def main():
+def main() -> None:
     settings = load_settings()
     if settings.other_folders:
         get_remote_folders(settings)
     transfer_pis(settings)
 
-def transfer_pis(settings):
+def transfer_pis(settings: Settings) -> None:
     print("Copying data from Pi")
 
     pi_names = load_pi_addresses()
@@ -36,7 +37,7 @@ def transfer_pis(settings):
         proc = Popen(cmd)
         processes.append(proc)
 
-    failed_transfers = []
+    failed_transfers: List[str] = []
     for ind, proc in enumerate(processes):
         proc.wait()
         if (proc.returncode == 0):
@@ -67,7 +68,7 @@ def transfer_pis(settings):
             f'\n------------------------'
             )
 
-def get_remote_folders(settings):
+def get_remote_folders(settings: Settings) -> None:
     local_data = settings.local_data_path
     folders = settings.other_folders
     for label in folders:
@@ -77,7 +78,7 @@ def get_remote_folders(settings):
             cmd = ["rsync", "-ah","--info=progress2", remote, local_data]
             run(cmd, check=True) #TODO handle, error descriptively
 
-def parse_log(log_file):
+def parse_log(log_file: Union[str, Path]) -> List[str]:
     """
     Parses an rsync log file and returns a list of top-level files/folders scanned by rsync.
     """ 

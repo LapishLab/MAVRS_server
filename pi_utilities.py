@@ -2,7 +2,7 @@ from subprocess import run
 from datetime import datetime
 from load_settings import pi_address_file
 
-def send_pi_command(pi_cmd):
+def send_pi_command(pi_cmd: str) -> None:
     cmd = [
         'parallel-ssh',
         '--timeout', '0',
@@ -12,7 +12,7 @@ def send_pi_command(pi_cmd):
     ]
     run(cmd, check=True)
 
-def send_individual_pi_command(pi_cmd, pi_name):
+def send_individual_pi_command(pi_cmd: str, pi_name: str) -> None:
     cmd = [
         'ssh',
         pi_name,
@@ -20,7 +20,7 @@ def send_individual_pi_command(pi_cmd, pi_name):
     ]
     run(cmd, check=True)
 
-def set_time_on_pis():
+def set_time_on_pis() -> None:
     print("Setting clock time on Pis")
     now = datetime.now()
     day = now.strftime("%Y-%m-%d")
@@ -29,14 +29,14 @@ def set_time_on_pis():
     pi_cmd = f"sudo sh MAVRS_pi/setTime.sh {day} {time_str}"
     send_pi_command(pi_cmd)
 
-def report_disk_space():
+def report_disk_space() -> None:
     print("Reporting disk space on Pis")
     send_pi_command("sh MAVRS_pi/reportDiskSpace.sh")
 
-def delete_pi_data():
+def delete_pi_data() -> None:
     print("deleting all data from Pis")
     send_pi_command("bash MAVRS_pi/nuke.sh")
 
-def shutdown_pis():
+def shutdown_pis() -> None:
     print("shutting down Pis")
     send_pi_command("sudo shutdown now")

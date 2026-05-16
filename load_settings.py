@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
 import yaml 
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, List, Union
 from pydantic import BaseModel
 
-def settings_folder():
+class Settings(BaseModel):
+    local_data_path: str
+    other_folders: Optional[Dict[str, Optional[str]]]
+    suggested_name_format: str = "%date%_%time%_%experiment%_rat%input{rat number}%"
+    backup_data_path: Optional[str]
+
+def settings_folder() -> Path:
     return Path.home() / "MAVRS_settings"
 
-def load_settings():
+def load_settings() -> Settings:
     settings_file = settings_folder()/"settings.yaml"
     try:
         with open(settings_file, 'r') as f:
@@ -22,37 +28,31 @@ def load_settings():
     validated = Settings.parse_obj(settings)
     return validated
 
-class Settings(BaseModel):
-    local_data_path: str
-    other_folders: Optional[Dict[Optional[str], Optional[str]]]
-    suggested_name_format: Optional[str] = "%date%_%time%_%experiment%_rat%input{rat number}%"
-    backup_data_path: Optional[str]
-
-def load_experiment_names():
+def load_experiment_names() -> List[str]:
     file = settings_folder()/"experiment_names.txt"
     return read_lines(file)
 
-def pi_address_file():
+def pi_address_file() -> Path:
     return settings_folder()/"pi_addresses.txt"
 
-def transfer_logs_dir():
+def transfer_logs_dir() -> Path:
     log_dir = settings_folder()/'logs'
     log_dir.mkdir(exist_ok=True)
     return log_dir
     
 
-def load_pi_addresses():
+def load_pi_addresses() -> List[str]:
     file = pi_address_file()
     return read_lines(file)
 
-def read_lines(file):
+def read_lines(file: Union[str, Path]) -> List[str]:
     with open(file, "r") as f:
         lines = f.readlines()
     lines = [l.partition('#')[0].strip() for l in lines] # remove any thing after '#' character
     lines = [l for l in lines if l] #remove empty lines
     return lines
 
-def test():
+def test() -> None:
     settings = load_settings()
     print("Settings loaded successfully.")
     print(settings)

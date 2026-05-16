@@ -2,11 +2,11 @@
 import transfer_data
 from pi_utilities import send_pi_command
 
-def main():
+def main() -> None:
     stop_pis()
     transfer_data.main()
 
-def stop_pis():
+def stop_pis() -> None:
     print("stopping Pi recordings")
     send_pi_command("bash MAVRS_pi/stopExperiment.sh")
 

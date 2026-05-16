@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 from subprocess import run
 from datetime import datetime
-from load_settings import load_settings, load_experiment_names
+from load_settings import load_settings, load_experiment_names, Settings
 from pathlib import Path
 from pi_utilities import set_time_on_pis, report_disk_space, send_pi_command
 from re import search, sub
+from typing import Optional
 
-def main():
+def main() -> None:
     set_time_on_pis()
     report_disk_space()
 
@@ -18,8 +19,8 @@ def main():
     input("Hit enter when ready to start Pi recording")
     start_pi_recordings(session)
 
-def create_other_folders(session, settings):
-    folders = settings.other_folders
+def create_other_folders(session: str, settings: Settings) -> None:
+    folders = settings.other_folders or {}
     for label in folders:
         print(f"creating {label} folder")
         
@@ -30,10 +31,7 @@ def create_other_folders(session, settings):
         run(cmd, check=True)
 
         # copy folder to destination
-        if folders[label]: # assumed to be remote
-            dest = folders[label]
-        else: #assumed to be local
-            dest = settings.local_data_path
+        dest: str = folders[label] if folders[label] else settings.local_data_path
 
         cmd = ["rsync", "-ah","--info=progress2", temp, dest]
         run(cmd, check=True) #TODO handle, error descriptively
@@ -43,7 +41,7 @@ def create_other_folders(session, settings):
         run(cmd, check=True)
         print(f"Created: {dest}/{folder_name}")
     
-def get_session_name(settings):
+def get_session_name(settings: Settings) -> str:
     while True:
         suggested = settings.suggested_name_format
         now = datetime.now()
@@ -70,13 +68,13 @@ def get_session_name(settings):
         if not response == "n":
             return suggested
 
-def start_pi_recordings(session):
+def start_pi_recordings(session: str) -> None:
     print(f"Starting Pi recordings: {session}")
     pi_session =  f"{session}/pi-data_{session}"
     pi_cmd = f"nohup python -u MAVRS_pi/startExperiment.py --session {pi_session} &"
     send_pi_command(pi_cmd)
 
-def choose_experiment_from_file():
+def choose_experiment_from_file() -> str:
     lines = load_experiment_names()
 
     while True:
