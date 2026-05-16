@@ -1,24 +1,28 @@
-from subprocess import run
 from datetime import datetime
 from path_config import PI_ADDRESS_FILE
+from load_settings import load_pi_addresses
+from fabric import Connection
+from fabric.group import SerialGroup
+
 
 def send_pi_command(pi_cmd: str) -> None:
-    cmd = [
-        'parallel-ssh',
-        '--timeout', '0',
-        '--hosts', str(PI_ADDRESS_FILE),
-        '--print',
-        pi_cmd
-    ]
-    run(cmd, check=True)
+    """Execute a command on all Pis in parallel using Fabric."""
+    pi_names = load_pi_addresses()
+    hosts = SerialGroup(*[Connection(host=pi) for pi in pi_names])
+    result = hosts.run(pi_cmd, warn=False)
+    
+    # Check if any host failed
+    for connection, task_result in result.items():
+        if task_result.failed:
+            raise RuntimeError(f"Command failed on {connection.host}: {task_result.stderr}")
+
 
 def send_individual_pi_command(pi_cmd: str, pi_name: str) -> None:
-    cmd = [
-        'ssh',
-        pi_name,
-        pi_cmd
-    ]
-    run(cmd, check=True)
+    """Execute a command on a single Pi using Fabric."""
+    conn = Connection(host=pi_name)
+    result = conn.run(pi_cmd, warn=False)
+    if result.failed:
+        raise RuntimeError(f"Command failed on {pi_name}: {result.stderr}")
 
 def set_time_on_pis() -> None:
     print("Setting clock time on Pis")
