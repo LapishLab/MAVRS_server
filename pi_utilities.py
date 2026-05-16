@@ -1,12 +1,12 @@
 from subprocess import run
 from datetime import datetime
-from load_settings import pi_address_file
+from path_config import PI_ADDRESS_FILE
 
 def send_pi_command(pi_cmd: str) -> None:
     cmd = [
         'parallel-ssh',
         '--timeout', '0',
-        '--hosts', str(pi_address_file()),
+        '--hosts', str(PI_ADDRESS_FILE),
         '--print',
         pi_cmd
     ]

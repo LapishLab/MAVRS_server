@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 from subprocess import run, Popen
-from load_settings import load_settings, load_pi_addresses, transfer_logs_dir, Settings
+from load_settings import load_settings, load_pi_addresses, Settings
+from path_config import LOG_FOLDER
 from pi_utilities import send_individual_pi_command
 from warnings import warn
 import re
 from pathlib import Path
 from time import sleep
 from typing import List, Union
-
 from datetime import datetime
 
 def main() -> None:
@@ -24,12 +24,11 @@ def transfer_pis(settings: Settings) -> None:
 
     processes = []
     log_files = []
-    log_dir = transfer_logs_dir()
     now = datetime.now().strftime('%Y%m%d_%H%M%S')
     for pi in pi_names:
         pi_data_path = f'/home/pi/MAVRS_pi/data/'
         pi_path = f'{pi}:{pi_data_path}'
-        log = log_dir / f'{now}_{pi}_rsync.log' 
+        log = LOG_FOLDER / f'{now}_{pi}_rsync.log' 
         log_files.append(log)
         cmd = ['rsync', '-ah',  '--info=progress2', '--exclude=".*"',
                pi_path, server_path,

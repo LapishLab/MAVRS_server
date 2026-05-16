@@ -3,6 +3,7 @@ import yaml
 from pathlib import Path
 from typing import Dict, Optional, List, Union
 from pydantic import BaseModel
+from path_config import EXPERIMENT_NAMES_FILE, PI_ADDRESS_FILE, SETTINGS_FILE
 
 class Settings(BaseModel):
     local_data_path: str
@@ -10,40 +11,25 @@ class Settings(BaseModel):
     suggested_name_format: str = "%date%_%time%_%experiment%_rat%input{rat number}%"
     backup_data_path: Optional[str]
 
-def settings_folder() -> Path:
-    return Path.home() / "MAVRS_settings"
-
 def load_settings() -> Settings:
-    settings_file = settings_folder()/"settings.yaml"
     try:
-        with open(settings_file, 'r') as f:
+        with open(SETTINGS_FILE, 'r') as f:
             settings = yaml.safe_load(f)
     except yaml.YAMLError as exc:
         raise RuntimeError(f"Error parsing YAML: {exc}")
     except FileNotFoundError:
-        raise RuntimeError(f"File not found: {settings_file}")
+        raise RuntimeError(f"File not found: {SETTINGS_FILE}")
     except Exception as e:
-        raise RuntimeError(f"An unexpected error occurred when loading {settings_file}: {e}")
+        raise RuntimeError(f"An unexpected error occurred when loading {SETTINGS_FILE}: {e}")
     
     validated = Settings.parse_obj(settings)
     return validated
 
 def load_experiment_names() -> List[str]:
-    file = settings_folder()/"experiment_names.txt"
-    return read_lines(file)
-
-def pi_address_file() -> Path:
-    return settings_folder()/"pi_addresses.txt"
-
-def transfer_logs_dir() -> Path:
-    log_dir = settings_folder()/'logs'
-    log_dir.mkdir(exist_ok=True)
-    return log_dir
-    
+    return read_lines(EXPERIMENT_NAMES_FILE)    
 
 def load_pi_addresses() -> List[str]:
-    file = pi_address_file()
-    return read_lines(file)
+    return read_lines(PI_ADDRESS_FILE)
 
 def read_lines(file: Union[str, Path]) -> List[str]:
     with open(file, "r") as f:
