@@ -21,12 +21,17 @@ def transfer_pis(settings: Settings) -> None:
 
     processes: List[tuple[Popen, str, str]] = []
     for pi in pi_names:
+        port = "22"
+        if ":" in pi:
+            pi, port = pi.split(":")
+
         pi_data_path = f'/home/pi/MAVRS_pi/data/'
         pi_path = f'{pi}:{pi_data_path}'
         # Use --out-format to print transferred file/dir names to stdout
         cmd = [
             'rsync', '-ah', '--info=progress2', '--exclude=.*',
             f"--out-format=%n",
+            '-e', f'ssh -p {port}',
             pi_path, server_path
         ]
         proc = Popen(cmd, stdout=PIPE, stderr=PIPE, text=True)
