@@ -19,13 +19,16 @@ def transfer_pis(settings: Settings) -> None:
     pi_names = load_pi_addresses()
     server_path = settings.local_data_path
 
-    processes: List[tuple[Popen, str, str]] = []
-    for pi in pi_names:
-        port = "22"
-        if ":" in pi:
-            pi, port = pi.split(":")
+    pi_data_path = f'/home/pi/MAVRS_pi/data/'
+    
+    processes: List[tuple[str, Popen]] = []
+    for fullname in pi_names:
+        if ":" in fullname:
+            pi, port = fullname.split(":")
+        else:
+            pi = fullname
+            port = "22"
 
-        pi_data_path = f'/home/pi/MAVRS_pi/data/'
         pi_path = f'{pi}:{pi_data_path}'
         # Use --out-format to print transferred file/dir names to stdout
         cmd = [
@@ -35,10 +38,10 @@ def transfer_pis(settings: Settings) -> None:
             pi_path, server_path
         ]
         proc = Popen(cmd, stdout=PIPE, stderr=PIPE, text=True)
-        processes.append((proc, pi, pi_data_path))
+        processes.append((fullname, proc))
 
     failed_transfers: List[str] = []
-    for proc, pi_name, pi_data_path in processes:
+    for pi_name, proc in processes:
         stdout, stderr = proc.communicate()
         if proc.returncode == 0:
             print(f'\nSuccessfully transfered data from {pi_name}: Automatically deleting data')
