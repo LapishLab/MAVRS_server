@@ -7,7 +7,7 @@ from fabric.group import SerialGroup
 def send_pi_command(pi_cmd: str) -> None:
     """Execute a command on all Pis in parallel using Fabric."""
     pi_names = load_pi_addresses()
-    hosts = SerialGroup(*[Connection(host=pi) for pi in pi_names])
+    hosts = SerialGroup(*pi_names)
     result = hosts.run(pi_cmd, warn=False)
     
     # Check if any host failed

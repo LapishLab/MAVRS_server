@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
+from load_settings import load_pi_connections
 import transfer_data
-from pi_utilities import send_pi_command
+from pi_sysemd import stop_process
 
 def main() -> None:
     stop_pis()
@@ -8,7 +9,8 @@ def main() -> None:
 
 def stop_pis() -> None:
     print("stopping Pi recordings")
-    send_pi_command("bash MAVRS_pi/stopExperiment.sh")
+    pis = load_pi_connections()
+    stop_process(pis)
 
 if __name__ == "__main__":
     main()

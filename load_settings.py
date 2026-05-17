@@ -4,6 +4,8 @@ from pathlib import Path
 from typing import Dict, Optional, List, Union
 from pydantic import BaseModel
 from path_config import EXPERIMENT_NAMES_FILE, PI_ADDRESS_FILE, SETTINGS_FILE
+from fabric import Connection
+from fabric.group import SerialGroup
 
 class Settings(BaseModel):
     local_data_path: str
@@ -30,6 +32,10 @@ def load_experiment_names() -> List[str]:
 
 def load_pi_addresses() -> List[str]:
     return read_lines(PI_ADDRESS_FILE)
+
+def load_pi_connections() -> SerialGroup:
+    pi_names = load_pi_addresses()
+    return SerialGroup(*pi_names)
 
 def read_lines(file: Union[str, Path]) -> List[str]:
     with open(file, "r") as f:

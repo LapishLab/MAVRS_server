@@ -1,12 +1,14 @@
-#!/usr/bin/env python3
 from subprocess import run
 from datetime import datetime
-from load_settings import load_settings, load_experiment_names, Settings
+from load_settings import load_pi_connections, load_settings, load_experiment_names, Settings
 from pathlib import Path
 from pi_utilities import set_time_on_pis, report_disk_space, send_pi_command
 from re import search, sub
+from fabric.group import SerialGroup
+from pi_sysemd import start_process
 
 def main() -> None:
+    pis = load_pi_connections()
     set_time_on_pis()
     report_disk_space()
 
@@ -16,7 +18,7 @@ def main() -> None:
     if settings.other_folders:
         create_other_folders(session, settings)
     input("Hit enter when ready to start Pi recording")
-    start_pi_recordings(session)
+    start_pi_recordings(pis, session)
 
 def create_other_folders(session: str, settings: Settings) -> None:
     folders = settings.other_folders or {}
@@ -67,11 +69,10 @@ def get_session_name(settings: Settings) -> str:
         if not response == "n":
             return suggested
 
-def start_pi_recordings(session: str) -> None:
+def start_pi_recordings(pis: SerialGroup, session: str) -> None:
     print(f"Starting Pi recordings: {session}")
     pi_session =  f"{session}/pi-data_{session}"
-    pi_cmd = f"nohup python -u MAVRS_pi/startExperiment.py --session {pi_session} &"
-    send_pi_command(pi_cmd)
+    start_process(pis, pi_session)
 
 def choose_experiment_from_file() -> str:
     lines = load_experiment_names()
