@@ -23,18 +23,18 @@ def send_individual_pi_command(pi_cmd: str, pi_name: str) -> None:
     if result.failed:
         raise RuntimeError(f"Command failed on {pi_name}: {result.stderr}")
 
-def set_time_on_pis() -> None:
+def set_time_on_pis(pis: SerialGroup) -> None:
     print("Setting clock time on Pis")
     now = datetime.now()
     day = now.strftime("%Y-%m-%d")
     time_str = now.strftime("%H:%M:%S")
     print(f"setting time on all Pis to {day} {time_str}")
     pi_cmd = f"sudo sh MAVRS_pi/setTime.sh {day} {time_str}"
-    send_pi_command(pi_cmd)
+    result = pis.run(pi_cmd, warn=False)
 
-def report_disk_space() -> None:
+def report_disk_space(pis: SerialGroup) -> None:
     print("Reporting disk space on Pis")
-    send_pi_command("sh MAVRS_pi/reportDiskSpace.sh")
+    pis.run("sh MAVRS_pi/reportDiskSpace.sh", warn=False)
 
 def delete_pi_data() -> None:
     print("deleting all data from Pis")

@@ -9,8 +9,8 @@ from pi_sysemd import start_process
 
 def main() -> None:
     pis = load_pi_connections()
-    set_time_on_pis()
-    report_disk_space()
+    set_time_on_pis(pis)
+    report_disk_space(pis)
 
     settings = load_settings()
 
