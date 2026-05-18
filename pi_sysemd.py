@@ -10,6 +10,11 @@ def is_active(c: SerialGroup) -> list[bool]:
     result = c.run(f"{ENV} systemctl --user is-active {UNIT}.service", warn=True, hide=True)
     return [getattr(v, "stdout", "").strip() == "active" for v in result.values()]
 
+def is_reachable(c: SerialGroup) -> list[bool]:
+    """Checks if the hosts in the SerialGroup are reachable."""
+    result = c.run("true", warn=True, hide=True)
+    return [getattr(v, "ok", False) for v in result.values()]
+
 def stop_process(c: SerialGroup):
     if not any(is_active(c)):
         print(f"{UNIT} is not running on any hosts.")
