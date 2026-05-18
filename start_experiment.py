@@ -2,7 +2,7 @@ from subprocess import run
 from datetime import datetime
 from load_settings import load_pi_connections, load_settings, load_experiment_names, Settings
 from pathlib import Path
-from pi_utilities import set_time_on_pis, report_disk_space, send_pi_command
+from pi_utilities import set_time_on_pis, report_disk_space
 from re import search, sub
 from fabric.group import SerialGroup
 from pi_sysemd import start_process

@@ -4,8 +4,7 @@ from load_settings import load_settings, load_pi_addresses, Settings
 from pi_utilities import send_individual_pi_command
 from warnings import warn
 from pathlib import Path
-from typing import List, Union
-from datetime import datetime
+from typing import List
 
 def main() -> None:
     settings = load_settings()

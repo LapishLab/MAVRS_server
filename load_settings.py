@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Dict, Optional, List, Union
 from pydantic import BaseModel
 from path_config import EXPERIMENT_NAMES_FILE, PI_ADDRESS_FILE, SETTINGS_FILE
-from fabric import Config, Connection
+from fabric import Config
 from fabric.group import SerialGroup
 
 class Settings(BaseModel):

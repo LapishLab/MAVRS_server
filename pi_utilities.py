@@ -1,21 +1,7 @@
-from datetime import datetime, timedelta
-from load_settings import load_pi_addresses
+from datetime import datetime
 from fabric import Connection
 from fabric.group import SerialGroup
 from time import sleep
-
-
-def send_pi_command(pi_cmd: str) -> None:
-    """Execute a command on all Pis in parallel using Fabric."""
-    pi_names = load_pi_addresses()
-    hosts = SerialGroup(*pi_names)
-    result = hosts.run(pi_cmd, warn=False)
-    
-    # Check if any host failed
-    for connection, task_result in result.items():
-        if task_result.failed:
-            raise RuntimeError(f"Command failed on {connection.host}: {task_result.stderr}")
-
 
 def send_individual_pi_command(pi_cmd: str, pi_name: str) -> None:
     """Execute a command on a single Pi using Fabric."""
@@ -50,11 +36,3 @@ def set_time_on_pis(pis: SerialGroup) -> None:
 
 def report_disk_space(pis: SerialGroup) -> None:
     pis.run("sh MAVRS_pi/reportDiskSpace.sh", warn=False)
-
-def delete_pi_data() -> None:
-    print("deleting all data from Pis")
-    send_pi_command("bash MAVRS_pi/nuke.sh")
-
-def shutdown_pis() -> None:
-    print("shutting down Pis")
-    send_pi_command("sudo shutdown now")
