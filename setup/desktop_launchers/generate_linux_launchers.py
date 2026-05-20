@@ -32,7 +32,7 @@ def generate_desktop_launcher(name: str, script_path: Path, icon_path: Path, sav
     Type=Application
     Name={name}
     Comment=Launch {script_path.name}
-    Exec= sh -c 'python3 {script_path.name}; echo "Press enter to close window..."; read dummy'
+    Exec= sh -c '.venv/bin/python {script_path.name}; echo "Press enter to close window..."; read dummy'
     Icon={icon_path.as_posix()}
     Path={script_path.parent.as_posix()}
     Terminal=true
