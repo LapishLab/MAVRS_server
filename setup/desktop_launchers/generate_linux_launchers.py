@@ -26,6 +26,13 @@ def main():
         save_directory = save_folder
     )
 
+    generate_desktop_launcher(
+        name="GUI",
+        script_path = repo_root / "user_gui.py",
+        icon_path = png_folder / "glop.png",
+        save_directory = save_folder
+    )
+
 def generate_desktop_launcher(name: str, script_path: Path, icon_path: Path, save_directory: Path):
     content = f"""[Desktop Entry]
     Version=1.0
