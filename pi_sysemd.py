@@ -37,9 +37,3 @@ def start_process(c: SerialGroup, session: str):
     else:
         raise RuntimeError(f"Failed to start {UNIT} on one or more Pis")
     
-def stream_output(c: SerialGroup):
-    """Streams the output of the systemd unit from all Pis."""
-    if not any(is_active(c)):
-        print(f"{UNIT} is not running on any hosts.")
-        return
-    c.run(f"{ENV} journalctl --user -u {UNIT}.service -f", pty=True)
