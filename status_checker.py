@@ -16,6 +16,8 @@ class PiStatus(Enum):
 class RemoteFolderStatus(Enum):
     UNREACHABLE = "unreachable"
     REACHABLE = "reachable"
+    RSYNC_ERROR = "rsync error"
+    UNKNOWN_ERROR = "unknown error"
 
 def check_pi_statuses(pi_group: SerialGroup) -> List[PiStatus]:
     reachable = is_reachable(pi_group)
@@ -38,20 +40,24 @@ def check_remote_folders(folders: dict[str, str] = None) -> Dict[str, RemoteFold
 
     for label, remote_path in folders.items():
         id = f"{label}({remote_path})"
-        try:
-            # Use rsync --list-only to check accessibility without transferring data
-            result: CompletedProcess = run(
-                ["rsync", "--list-only", remote_path],
-                capture_output=True,
-                timeout=10,
-                check=False
-            )
-            if result.returncode == 0:
-                statuses[id] = RemoteFolderStatus.REACHABLE
-            else:
+
+        # Use rsync --list-only to check accessibility without transferring data
+        result: CompletedProcess = run(
+            ["rsync", "--list-only", remote_path],
+            capture_output=True,
+            timeout=10,
+            check=False
+        )
+        if result.returncode == 0:
+            statuses[id] = RemoteFolderStatus.REACHABLE
+        else:
+            stderr = result.stderr.decode(errors="ignore") if isinstance(result.stderr, bytes) else str(result.stderr)
+            if "No such file or directory" in stderr or "failed to stat" in stderr or "stat failed" in stderr:
+                statuses[id] = RemoteFolderStatus.RSYNC_ERROR
+            elif "No route to host" in stderr or "Connection timed out" in stderr or "Connection refused" in stderr or "Could not resolve hostname" in stderr:
                 statuses[id] = RemoteFolderStatus.UNREACHABLE
-        except Exception:
-            statuses[id] = RemoteFolderStatus.UNREACHABLE
+            else:
+                statuses[id] = RemoteFolderStatus.UNKNOWN_ERROR
     return statuses
 
 
