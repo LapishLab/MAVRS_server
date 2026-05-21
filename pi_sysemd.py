@@ -27,7 +27,8 @@ def start_process(c: SerialGroup, session: str):
     if any(is_active(c)):
         print(f"Aborting: {UNIT} is already running on one or more hosts.")
         return
-    
+    c.run(f'{ENV} systemctl --user reset-failed {UNIT}.service', warn=True)
+
     pi_cmd = f'{PYTHON_PATH} -u {SCRIPT_PATH} --session {session}'
     sysemd_cmd = f'{ENV} systemd-run --user --unit={UNIT} --pipe --remain-after-exit {pi_cmd}'
     c.run(sysemd_cmd)
