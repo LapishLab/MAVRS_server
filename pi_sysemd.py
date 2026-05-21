@@ -30,9 +30,16 @@ def start_process(c: SerialGroup, session: str):
     c.run(f'{ENV} systemctl --user reset-failed {UNIT}.service', warn=True)
 
     pi_cmd = f'{PYTHON_PATH} -u {SCRIPT_PATH} --session {session}'
-    sysemd_cmd = f'{ENV} systemd-run --user --unit={UNIT} --pipe --remain-after-exit {pi_cmd}'
-    c.run(sysemd_cmd)
+    sysemd_cmd = f'{ENV} systemd-run --user --unit={UNIT} {pi_cmd}'
+    c.run(sysemd_cmd, warn=True)
     if all(is_active(c)):
         print(f"Started {UNIT} on all Pis")
     else:
         raise RuntimeError(f"Failed to start {UNIT} on one or more Pis")
+    
+def stream_output(c: SerialGroup):
+    """Streams the output of the systemd unit from all Pis."""
+    if not any(is_active(c)):
+        print(f"{UNIT} is not running on any hosts.")
+        return
+    c.run(f"{ENV} journalctl --user -u {UNIT}.service -f", pty=True)
