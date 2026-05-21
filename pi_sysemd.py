@@ -29,7 +29,7 @@ def start_process(c: SerialGroup, session: str):
         return
     
     pi_cmd = f'{PYTHON_PATH} -u {SCRIPT_PATH} --session {session}'
-    sysemd_cmd = f'{ENV} systemd-run --user --unit={UNIT} --remain-after-exit {pi_cmd}'
+    sysemd_cmd = f'{ENV} systemd-run --user --unit={UNIT} --pipe --remain-after-exit {pi_cmd}'
     c.run(sysemd_cmd)
     if all(is_active(c)):
         print(f"Started {UNIT} on all Pis")
