@@ -70,16 +70,19 @@ def transfer_pis(settings: Settings) -> None:
             f'\n------------------------'
             )
 
+def remote_directories(settings: Settings = None) -> dict[str, str]:
+    if not settings:
+        settings = load_settings()
+    folders = settings.other_folders
+    return {k:v for k,v in folders.items() if v is not None}
+
 def get_remote_folders(settings: Settings) -> None:
     local_data = settings.local_data_path
-    folders = settings.other_folders or {}
-    for label in folders:
-        val = folders[label]
-        if val:  # assumed to be remote
-            print(f"Getting {label} folder")
-            remote = f"{val}"
-            cmd = ["rsync", "-ah","--info=progress2", remote, local_data]
-            run(cmd, check=True)  # TODO handle, error descriptively
+    folders = remote_directories(settings)
+    for label, remote_path in folders.items():
+        print(f"Getting {label} folder")
+        cmd = ["rsync", "-ah","--info=progress2", remote_path, local_data]
+        run(cmd, check=True)  # TODO handle, error descriptively
 
 def parse_rsync_stdout(output: str) -> List[str]:
     """
