@@ -12,6 +12,7 @@ from fabric.group import SerialGroup
 from fabric import Connection
 
 from load_settings import load_pi_connections
+from path_config import PI_ADDRESS_FILE
 from status_checker import PiStatus, RemoteFolderStatus, check_pi_statuses, check_remote_folders
 from pi_sysemd import ENV, UNIT
 
@@ -174,6 +175,13 @@ def run_user_gui(refresh_interval: int = 5000) -> None:
     start_button.pack(side="left", padx=(0, 8))
     stop_button.pack(side="left")
 
+    edit_pi_addresses_button = ttk.Button(
+        button_frame,
+        text="Edit Pi Addresses",
+        command=open_pi_addresses_editor,
+    )
+    edit_pi_addresses_button.pack(side="left", padx=(8, 0))
+
     tree = ttk.Treeview(frame, columns=("host", "status"), show="headings", height=10)
     tree.heading("host", text="Pi Host")
     tree.heading("status", text="Status")
@@ -197,7 +205,7 @@ def run_user_gui(refresh_interval: int = 5000) -> None:
 
     other_tree.tag_configure(RemoteFolderStatus.REACHABLE.value, foreground="green")
     other_tree.tag_configure(RemoteFolderStatus.UNREACHABLE.value, foreground="red")
-
+    
     def on_tree_double_click(event):
         """Open output stream window when a row is double-clicked."""
         item = tree.selection()[0] if tree.selection() else None
@@ -237,6 +245,139 @@ def run_user_gui(refresh_interval: int = 5000) -> None:
 
     refresh()
     root.mainloop()
+def open_pi_addresses_editor() -> None:
+    editor_window = tk.Toplevel()
+    editor_window.title("Edit Pi Addresses")
+    editor_window.geometry("560x420")
+
+    frame = ttk.Frame(editor_window, padding=10)
+    frame.pack(fill="both", expand=True)
+
+    label = ttk.Label(
+        frame,
+        text=f"Edit Pi addresses file: {PI_ADDRESS_FILE}",
+        font=("", 10, "bold"),
+    )
+    label.pack(fill="x", pady=(0, 8))
+
+    # Load file content
+    try:
+        with open(PI_ADDRESS_FILE, "r") as f:
+            raw_lines = f.read().splitlines()
+    except FileNotFoundError:
+        raw_lines = []
+    except Exception as exc:
+        raw_lines = [f"# Error reading file: {exc}"]
+
+    # Scrolling frame to hold rows of (checkbox, main, comment)
+    rows_container = ttk.Frame(frame)
+    rows_container.pack(fill="both", expand=True)
+
+    canvas = tk.Canvas(rows_container)
+    v_scroll = ttk.Scrollbar(rows_container, orient="vertical", command=canvas.yview)
+    canvas.configure(yscrollcommand=v_scroll.set)
+    v_scroll.pack(side="right", fill="y")
+    canvas.pack(side="left", fill="both", expand=True)
+
+    inner_frame = ttk.Frame(canvas)
+    canvas.create_window((0, 0), window=inner_frame, anchor="nw")
+
+    def _on_canvas_config(event):
+        canvas.configure(scrollregion=canvas.bbox("all"))
+
+    inner_frame.bind("<Configure>", _on_canvas_config)
+
+    # Header
+    hdr_chk = ttk.Label(inner_frame, text=" ", width=3)
+    hdr_main = ttk.Label(inner_frame, text="Address ", width=40, anchor="w")
+    hdr_cmt = ttk.Label(inner_frame, text="Comment", width=40, anchor="w")
+    hdr_chk.grid(row=0, column=0, padx=3, pady=2)
+    hdr_main.grid(row=0, column=1, padx=3, pady=2, sticky="w")
+    hdr_cmt.grid(row=0, column=2, padx=3, pady=2, sticky="w")
+
+    # Store row widgets and state
+    editor_rows = []  # list of (var, entry_main, entry_comment)
+
+    def parse_line(line: str):
+        line = line.strip()
+        # Detect commented lines (starting with '#', possibly with leading spaces)
+        if line.startswith("#"):
+            checked = False
+            line = line.lstrip("#").strip()
+        else:   
+            checked = True
+        # Split remaining portion by next instance of '#'
+        main, _ ,comment = line.partition('#')
+        return checked, main, comment
+
+    def add_row(checked: bool, main: str, comment: str):
+        row_idx = len(editor_rows) + 1
+        var = tk.IntVar(value=1 if checked else 0)
+        chk = tk.Checkbutton(inner_frame, variable=var)
+        chk.grid(row=row_idx, column=0, padx=3, pady=2)
+
+        entry_main = ttk.Entry(inner_frame, width=80)
+        entry_main.insert(0, main)
+        entry_main.grid(row=row_idx, column=1, padx=3, pady=2, sticky="we")
+
+        entry_cmt = ttk.Entry(inner_frame, width=40)
+        entry_cmt.insert(0, comment)
+        entry_cmt.grid(row=row_idx, column=2, padx=3, pady=2, sticky="we")
+
+        editor_rows.append((var, entry_main, entry_cmt))
+
+    # Populate rows
+    for raw in raw_lines:
+        if raw.strip():
+            checked, main, comment = parse_line(raw)
+            add_row(checked, main, comment)
+
+    status_label = ttk.Label(frame, text="")
+    status_label.pack(fill="x", pady=(8, 0))
+
+    def build_lines_from_rows():
+        out_lines = []
+        for var, entry_main, entry_cmt in editor_rows:
+            checked = bool(var.get())
+            main = entry_main.get().rstrip()
+            comment = entry_cmt.get().strip()
+            if not main and not comment:
+                out_lines.append("")
+                continue
+            if comment:
+                line = f"{main} # {comment}" if main else f"# {comment}"
+            else:
+                line = main
+            if not checked:
+                if not line.startswith("#"):
+                    line = f"# {line}"
+            out_lines.append(line)
+        return out_lines
+
+    def save_addresses() -> None:
+        try:
+            lines = build_lines_from_rows()
+            with open(PI_ADDRESS_FILE, "w") as f:
+                f.write("\n".join(lines) + "\n")
+            status_label.config(text="Saved successfully.")
+        except Exception as exc:
+            status_label.config(text=f"Failed to save: {exc}")
+
+    button_frame = ttk.Frame(frame)
+    button_frame.pack(fill="x", pady=(8, 0))
+
+    add_button = ttk.Button(button_frame, text="Add Row", command=lambda: add_row(True, "", ""))
+    save_button = ttk.Button(button_frame, text="Save", command=save_addresses)
+    close_button = ttk.Button(button_frame, text="Close", command=editor_window.destroy)
+    add_button.pack(side="left")
+    save_button.pack(side="left", padx=(8, 0))
+    close_button.pack(side="left", padx=(8, 0))
+
+    def on_closing() -> None:
+        editor_window.destroy()
+
+    editor_window.protocol("WM_DELETE_WINDOW", on_closing)
+    return
 
 def main() -> None:
     run_user_gui()
