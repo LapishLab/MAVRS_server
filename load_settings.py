@@ -2,16 +2,23 @@
 import yaml 
 from pathlib import Path
 from typing import Dict, Optional, List, Union
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from path_config import EXPERIMENT_NAMES_FILE, PI_ADDRESS_FILE, SETTINGS_FILE
 from fabric import Config
 from fabric.group import SerialGroup
 
 class Settings(BaseModel):
     local_data_path: str
-    other_folders: Optional[Dict[str, Optional[str]]]
+    other_folders: Dict[str, Optional[str]] = {}
     suggested_name_format: str = "%date%_%time%_%experiment%_rat%input{rat number}%"
     backup_data_path: Optional[str]
+
+    @field_validator("other_folders", mode="before")
+    @classmethod
+    def none2dict(cls, v):
+        if v is None:
+            return {}
+        return v
 
 def load_settings() -> Settings:
     try:
@@ -24,8 +31,7 @@ def load_settings() -> Settings:
     except Exception as e:
         raise RuntimeError(f"An unexpected error occurred when loading {SETTINGS_FILE}: {e}")
     
-    validated = Settings.parse_obj(settings)
-    return validated
+    return Settings.model_validate(settings)
 
 def load_experiment_names() -> List[str]:
     return read_lines(EXPERIMENT_NAMES_FILE)    
