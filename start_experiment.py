@@ -9,16 +9,16 @@ from pi_sysemd import start_process
 
 def main() -> None:
     pis = load_pi_connections()
-    set_time_on_pis(pis)
-    report_disk_space(pis)
-
     settings = load_settings()
-
     session = get_session_name(settings)
-    if settings.other_folders:
-        create_other_folders(session, settings)
+    initialize(pis, settings, session)
     input("Hit enter when ready to start Pi recording")
     start_pi_recordings(pis, session)
+
+def initialize(pis: SerialGroup, settings: Settings, session: str) -> None:
+    set_time_on_pis(pis)
+    report_disk_space(pis)
+    create_other_folders(session, settings)
 
 def create_other_folders(session: str, settings: Settings) -> None:
     folders = settings.other_folders or {}
