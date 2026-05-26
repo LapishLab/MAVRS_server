@@ -42,12 +42,16 @@ def check_remote_folders(folders: dict[str, str] = None) -> Dict[str, RemoteFold
         id = f"{label}({remote_path})"
 
         # Use rsync --list-only to check accessibility without transferring data
-        result: CompletedProcess = run(
-            ["rsync", "--list-only", remote_path],
-            capture_output=True,
-            timeout=10,
-            check=False
-        )
+        try:
+            result: CompletedProcess = run(
+                ["rsync", "--list-only", remote_path],
+                capture_output=True,
+                timeout=10,
+                check=False
+            )
+        except Exception as e:
+            statuses[id] = RemoteFolderStatus.UNREACHABLE
+            continue
         if result.returncode == 0:
             statuses[id] = RemoteFolderStatus.REACHABLE
         else:
