@@ -19,7 +19,7 @@ class RemoteFolderStatus(Enum):
     RSYNC_ERROR = "rsync error"
     UNKNOWN_ERROR = "unknown error"
 
-def check_pi_statuses(pi_group: SerialGroup) -> List[PiStatus]:
+def check_pi_statuses(pi_group: SerialGroup) -> Dict[str, PiStatus]:
     reachable = is_reachable(pi_group)
     active = is_active(pi_group)
 
@@ -31,7 +31,9 @@ def check_pi_statuses(pi_group: SerialGroup) -> List[PiStatus]:
             statuses.append(PiStatus.RUNNING)
         else:
             statuses.append(PiStatus.REACHABLE)
-    return statuses
+
+    names = [connection.host for connection in pi_group]
+    return dict(zip(names, statuses))
 
 def check_remote_folders(folders: dict[str, str] = None) -> Dict[str, RemoteFolderStatus]:
     statuses: Dict[str, RemoteFolderStatus] = {}

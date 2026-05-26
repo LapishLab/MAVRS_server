@@ -15,6 +15,7 @@ from load_settings import load_pi_connections
 from path_config import PI_ADDRESS_FILE
 from status_checker import PiStatus, RemoteFolderStatus, check_pi_statuses, check_remote_folders
 from pi_sysemd import ENV, UNIT
+from transfer_data import remote_directories
 
 def find_terminal_emulator():
     candidates = [
@@ -43,10 +44,6 @@ def launch_script_in_terminal(script_name: str) -> None:
 
     subprocess.Popen(terminal_args, cwd=script_path.parent)
 
-def get_pi_status_rows(pi_group: SerialGroup):
-    hosts = [connection.host for connection in pi_group]
-    statuses = check_pi_statuses(pi_group)
-    return list(zip(hosts, statuses))
 
 def stream_pi_output(connection: Connection, output_queue: Queue, host: str) -> None:
     """Periodically fetch and stream the systemd journal output from a single Pi."""
@@ -151,7 +148,7 @@ def open_output_stream_window(host: str, connection: Connection) -> None:
     # Start updating output
     update_output()
 
-def run_user_gui(refresh_interval: int = 5000) -> None:
+def run_user_gui(refresh_interval: int = 1000) -> None:
     pi_group = load_pi_connections()
     root = tk.Tk()
     root.title("MAVRS User GUI")
@@ -183,7 +180,7 @@ def run_user_gui(refresh_interval: int = 5000) -> None:
     edit_pi_addresses_button.pack(side="left", padx=(8, 0))
 
     tree = ttk.Treeview(frame, columns=("host", "status"), show="headings", height=10)
-    tree.heading("host", text="Pi Host")
+    tree.heading("host", text="Pi Address")
     tree.heading("status", text="Status")
     tree.column("host", width=260, anchor="w")
     tree.column("status", width=120, anchor="center")
@@ -193,9 +190,6 @@ def run_user_gui(refresh_interval: int = 5000) -> None:
     tree.tag_configure(PiStatus.REACHABLE.value, foreground="orange")
     tree.tag_configure(PiStatus.UNREACHABLE.value, foreground="red")
 
-    remote_label = ttk.Label(frame, text="Other Computer Status", font=("", 10, "bold"))
-    remote_label.pack(fill="x", pady=(12, 4))
-
     other_tree = ttk.Treeview(frame, columns=("remote", "status"), show="headings", height=6)
     other_tree.heading("remote", text="Remote Folder")
     other_tree.heading("status", text="Status")
@@ -204,7 +198,9 @@ def run_user_gui(refresh_interval: int = 5000) -> None:
     other_tree.pack(fill="both", expand=True)
 
     other_tree.tag_configure(RemoteFolderStatus.REACHABLE.value, foreground="green")
+    other_tree.tag_configure(RemoteFolderStatus.RSYNC_ERROR.value, foreground="red")
     other_tree.tag_configure(RemoteFolderStatus.UNREACHABLE.value, foreground="red")
+    other_tree.tag_configure(RemoteFolderStatus.UNKNOWN_ERROR.value, foreground="red")
     
     def on_tree_double_click(event):
         """Open output stream window when a row is double-clicked."""
@@ -218,32 +214,49 @@ def run_user_gui(refresh_interval: int = 5000) -> None:
                     open_output_stream_window(host, connection)
                     break
 
-    tree.bind("<Double-1>", on_tree_double_click)
+    tree.bind("<Double-1>", on_tree_double_click)         
 
-    status_label = ttk.Label(frame, text="Last updated: never")
-    status_label.pack(fill="x", pady=(8, 0))
+    
+    for connection in pi_group:
+        tree.insert("", "end", values=(connection.host, "Checking..."), tags=("Checking...",))
 
-    def refresh() -> None:
-        rows = get_pi_status_rows(pi_group)
+    for label, remote_path in remote_directories().items():
+        id = f"{label}({remote_path})"
+        other_tree.insert("", "end", values=(id, "Checking..."), tags=("Checking...",))
+
+    def update_pis() -> None:
+        pi_statuses = check_pi_statuses(pi_group)
         for item in tree.get_children():
             tree.delete(item)
+        for name, status in pi_statuses.items():
+            tree.insert("", "end", values=(name, status.value), tags=(status.value,))
+        root.after(refresh_interval, update_pis)
 
-        for host, status in rows:
-            tree.insert("", "end", values=(host, status.value), tags=(status.value,))
 
+    def update_other() -> None:
         other_statuses = check_remote_folders()
         for item in other_tree.get_children():
             other_tree.delete(item)
         if other_statuses:
-            for rem_id, status in other_statuses.items():
-                other_tree.insert("", "end", values=(rem_id, status.value), tags=(status.value,))
+            for name, status in other_statuses.items():
+                other_tree.insert("", "end", values=(name, status.value), tags=(status.value,))
         else:
             other_tree.insert("", "end", values=("No remote folders configured", ""))
+        root.after(refresh_interval, update_other)
+        
+    def start_updaters() -> None:
+        thread = threading.Thread(
+            target=lambda: update_pis(),
+            daemon=True
+        )
+        thread.start()
+        thread = threading.Thread(
+            target=lambda: update_other(),
+            daemon=True
+        )
+        thread.start()
 
-        status_label.config(text=f"Last updated: {time.strftime('%Y-%m-%d %H:%M:%S')}")
-        root.after(refresh_interval, refresh)
-
-    refresh()
+    root.after(0, start_updaters)
     root.mainloop()
 def open_pi_addresses_editor() -> None:
     editor_window = tk.Toplevel()
