@@ -34,7 +34,7 @@ def find_terminal_emulator():
 def launch_script_in_terminal(script_name: str) -> None:
     terminal, args = find_terminal_emulator()
     script_path = Path(__file__).resolve().parent / script_name
-    command = [sys.executable, str(script_path)]
+    command = ['sh', '-c', f'{sys.executable} {script_path}; echo "Press enter to close window..."; read dummy']
 
     if args == ["--command"]:
         terminal_args = [terminal] + args + [" ".join(command)]
