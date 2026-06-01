@@ -19,7 +19,7 @@ def stop_process(c: SerialGroup):
     if not any(is_active(c)):
         print(f"{UNIT} is not running on any hosts.")
         return
-    c.run(f"{ENV} systemctl --user stop {UNIT}.service")
+    c.run(f"{ENV} systemctl --user stop {UNIT}.service", warn=True)
     if any(is_active(c)):
         raise RuntimeError(f"Failed to stop {UNIT} on one or more hosts.")
 
@@ -27,10 +27,8 @@ def start_process(c: SerialGroup, session: str):
     if any(is_active(c)):
         print(f"Aborting: {UNIT} is already running on one or more hosts.")
         return
-    c.run(f'{ENV} systemctl --user reset-failed {UNIT}.service', warn=True)
-
     pi_cmd = f'{PYTHON_PATH} -u {SCRIPT_PATH} --session {session}'
-    sysemd_cmd = f'{ENV} systemd-run --user --unit={UNIT} {pi_cmd}'
+    sysemd_cmd = f'{ENV} systemctl --user reset-failed; systemd-run --user --unit={UNIT} {pi_cmd}'
     c.run(sysemd_cmd, warn=True)
     if all(is_active(c)):
         print(f"Started {UNIT} on all Pis")
