@@ -5,7 +5,7 @@ from typing import Dict, Optional, List, Union
 from pydantic import BaseModel, Field, field_validator
 from path_config import EXPERIMENT_NAMES_FILE, PI_ADDRESS_FILE, SETTINGS_FILE
 from fabric import Config
-from fabric.group import SerialGroup
+from fabric.group import SerialGroup, ThreadingGroup
 
 class Settings(BaseModel):
     local_data_path: str
@@ -42,7 +42,7 @@ def load_pi_addresses() -> List[str]:
 def load_pi_connections() -> SerialGroup:
     pi_names = load_pi_addresses()
     config = Config(overrides={'sudo': {'password': ' '}})
-    return SerialGroup(*pi_names, config=config)
+    return ThreadingGroup(*pi_names, config=config)
 
 def read_lines(file: Union[str, Path]) -> List[str]:
     with open(file, "r") as f:
