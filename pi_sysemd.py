@@ -34,4 +34,17 @@ def start_process(c: SerialGroup, session: str):
         print(f"Started {UNIT} on all Pis")
     else:
         raise RuntimeError(f"Failed to start {UNIT} on one or more Pis")
-    
+
+def stream_logs(c: Optional[ThreadingGroup] = None):
+    """Stream journal logs for `UNIT` from each host in the ThreadingGroup.
+
+    This spawns a thread per host and prints each log line prefixed with the host.
+    Interrupt with Ctrl-C to stop streaming.
+    """
+    if c is None:
+        from load_settings import load_pi_connections
+        c = load_pi_connections()
+    c.run(f"{ENV} journalctl --user -u {UNIT}.service -f --no-pager", warn=True)
+
+if __name__ == "__main__":
+    stream_logs()
