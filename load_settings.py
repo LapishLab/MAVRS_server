@@ -42,9 +42,13 @@ def load_pi_addresses() -> List[str]:
 
 def load_pi_connections() -> SerialGroup:
     pi_names = load_pi_addresses()
-    config = Config(overrides={'sudo': {'password': ' '}})
     connections = [PrefixedConnection(host=h, config=config) for h in pi_names]
     return ThreadingGroup.from_connections(connections)
+    config = Config(overrides={
+        'sudo': {'password': ' '},
+        'timeouts':{'connect':10},
+        'transport':{'keepalive', 30},
+        })
 
 def read_lines(file: Union[str, Path]) -> List[str]:
     with open(file, "r") as f:
