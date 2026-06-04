@@ -5,15 +5,20 @@ PYTHON_PATH = "/home/pi/MAVRS_pi/.venv/bin/python3"
 
 from fabric.group import ThreadingGroup
 from typing import Optional
+from load_settings import load_pi_connections
 
-def is_active(c: ThreadingGroup) -> list[bool]:
+def is_active(c: Optional[ThreadingGroup] = None) -> list[bool]:
     """Checks if the specific systemd unit is active."""
-    result = c.run(f"{ENV} systemctl --user is-active {UNIT}.service", warn=True, hide=True)
+    if c is None:
+        c = load_pi_connections()
+    result = c.run(f"{ENV} systemctl --user is-active {UNIT}.service", warn=True, hide=True, timeout=2)
     return [getattr(v, "stdout", "").strip() == "active" for v in result.values()]
 
-def is_reachable(c: ThreadingGroup) -> list[bool]:
+def is_reachable(c: Optional[ThreadingGroup] = None) -> list[bool]:
     """Checks if the hosts in the SerialGroup are reachable."""
-    result = c.run("true", warn=True, hide=True)
+    if c is None:
+        c = load_pi_connections()
+    result = c.run("true", warn=True, hide=True, timeout=5)
     return [getattr(v, "ok", False) for v in result.values()]
 
 def stop_process(c: ThreadingGroup):
@@ -52,4 +57,9 @@ def stream_logs(c: Optional[ThreadingGroup] = None):
     c.run(f"{ENV} journalctl --user -u {UNIT}.service -f --no-pager", warn=True)
 
 if __name__ == "__main__":
+    print("Checking if Pis are reachable...")
+    is_reachable()
+    print("Checking if Pis are active...")
+    is_active()
+    print("Streaming logs...")
     stream_logs()
