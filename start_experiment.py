@@ -34,7 +34,7 @@ def create_other_folders(session: str, settings: Settings) -> None:
         run(cmd, check=True)
 
         # copy folder to destination
-        dest: str = folders[label] if folders[label] else settings.local_data_path
+        dest = folders[label] if folders[label] else settings.local_data_path
 
         cmd = ["rsync", "-ah","--info=progress2", temp, dest]
         run(cmd, check=True) #TODO handle, error descriptively

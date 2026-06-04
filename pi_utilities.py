@@ -31,13 +31,13 @@ def set_time_on_pis(pis: List[Connection]) -> None:
     local_time = datetime.now()
     pi_times = get_pi_time(pis)
 
-    unparsable = [conn.host for conn, t in zip(pis, pi_times) if t is None]
+    unparsable = [str(conn.host) for conn, t in zip(pis, pi_times) if t is None]
     if unparsable:
         raise RuntimeError(f"Failed to get time from the following Pis: {', '.join(unparsable)}. Cannot verify time was set correctly.")
     
     t_threshold = 20.0 # seconds
     t_diff = [abs((local_time-t).total_seconds()) for t in pi_times]
-    over_threshold = [conn.host for conn, diff in zip(pis, t_diff) if diff > t_threshold]
+    over_threshold = [str(conn.host) for conn, diff in zip(pis, t_diff) if diff > t_threshold]
     if over_threshold:
         raise RuntimeError(f"Time on the following Pis is off by more than {t_threshold} seconds: {', '.join(over_threshold)}. Time may not have been set correctly.")    
     print("Time successfully set on all Pis.")
