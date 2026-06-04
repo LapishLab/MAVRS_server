@@ -9,6 +9,7 @@ def main() -> None:
 
 def stop_pis() -> None:
     print("stopping Pi recordings")
+    print("loading pi connections")
     pis = load_pi_connections()
     stop_process(pis)
 

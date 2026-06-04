@@ -3,27 +3,32 @@ UNIT = "mavrs"
 SCRIPT_PATH = "/home/pi/MAVRS_pi/startExperiment.py"
 PYTHON_PATH = "/home/pi/MAVRS_pi/.venv/bin/python3"
 
-from fabric.group import SerialGroup
+from fabric.group import ThreadingGroup
+from typing import Optional
 
-def is_active(c: SerialGroup) -> list[bool]:
+def is_active(c: ThreadingGroup) -> list[bool]:
     """Checks if the specific systemd unit is active."""
     result = c.run(f"{ENV} systemctl --user is-active {UNIT}.service", warn=True, hide=True)
     return [getattr(v, "stdout", "").strip() == "active" for v in result.values()]
 
-def is_reachable(c: SerialGroup) -> list[bool]:
+def is_reachable(c: ThreadingGroup) -> list[bool]:
     """Checks if the hosts in the SerialGroup are reachable."""
     result = c.run("true", warn=True, hide=True)
     return [getattr(v, "ok", False) for v in result.values()]
 
-def stop_process(c: SerialGroup):
+def stop_process(c: ThreadingGroup):
+    print("checking if pis are active")
     if not any(is_active(c)):
         print(f"{UNIT} is not running on any hosts.")
         return
+    print("Sending stop command to Pis")
     c.run(f"{ENV} systemctl --user stop {UNIT}.service", warn=True)
+    print("Double Checking that Pis have stopped")
     if any(is_active(c)):
         raise RuntimeError(f"Failed to stop {UNIT} on one or more hosts.")
 
-def start_process(c: SerialGroup, session: str):
+def start_process(c: ThreadingGroup, session: str):
+    print("checking if pis are active")
     if any(is_active(c)):
         print(f"Aborting: {UNIT} is already running on one or more hosts.")
         return

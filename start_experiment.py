@@ -9,10 +9,11 @@ from pi_sysemd import start_process
 
 def main() -> None:
     pis = load_pi_connections()
-    settings = load_settings()
-    session = get_session_name(settings)
-    initialize(pis, settings, session)
-    input("Hit enter when ready to start Pi recording")
+    # settings = load_settings()
+    # session = get_session_name(settings)
+    session = "test"
+    # initialize(pis, settings, session)
+    # input("Hit enter when ready to start Pi recording")
     start_pi_recordings(pis, session)
 
 def initialize(pis: SerialGroup, settings: Settings, session: str) -> None:
