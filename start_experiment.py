@@ -4,8 +4,10 @@ from load_settings import load_pi_connections, load_settings, load_experiment_na
 from pathlib import Path
 from pi_utilities import set_time_on_pis, report_disk_space
 from re import search, sub
-from fabric.group import SerialGroup
 from pi_sysemd import start_process
+from fabric_tools import run_on_connections
+from typing import Optional, List
+from fabric import Connection
 
 def main() -> None:
     pis = load_pi_connections()
@@ -15,7 +17,7 @@ def main() -> None:
     input("Hit enter when ready to start Pi recording")
     start_pi_recordings(pis, session)
 
-def initialize(pis: SerialGroup, settings: Settings, session: str) -> None:
+def initialize(pis: List[Connection], settings: Settings, session: str) -> None:
     set_time_on_pis(pis)
     report_disk_space(pis)
     create_other_folders(session, settings)
@@ -69,7 +71,7 @@ def get_session_name(settings: Settings) -> str:
         if not response == "n":
             return suggested
 
-def start_pi_recordings(pis: SerialGroup, session: str) -> None:
+def start_pi_recordings(pis: List[Connection], session: str) -> None:
     print(f"Starting Pi recordings: {session}")
     pi_session =  f"{session}/pi-data_{session}"
     start_process(pis, pi_session)

@@ -1,43 +1,46 @@
-
-
-import io
-import sys
-from fabric import Config, Connection
-from fabric.group import ThreadingGroup
-
-
-import sys
+from threading import Thread, Lock
+from typing import Iterable, List, Union, Any
 from fabric import Connection
-from fabric.group import ThreadingGroup
 
+def run_on_connections(connections: Iterable[Connection], command: str, **kwargs) -> List[Union[Any, Exception]]:
+    """Run a shell command concurrently on a list of Fabric Connection objects.
 
-class HostPrefixStream:
-    """A stream wrapper that prefixes each line of output with the host name."""
-    def __init__(self, host, target_stream=sys.stdout):
-        self.prefix = f"[{host}] "
-        self.target = target_stream
-        self.at_line_start = True
+    Args:
+        connections: iterable of `fabric.Connection` instances.
+        command: command to run on each connection.
+        **kwargs: passed through to each connection's `run()` call.
 
-    def write(self, data):
-        if not data:
-            return
-        # Split lines but keep the endings to preserve formatting
-        lines = data.splitlines(keepends=True)
-        for line in lines:
-            if self.at_line_start:
-                self.target.write(self.prefix)
-            self.target.write(line)
-            # If the line ends with a newline, the next chunk should start with a prefix
-            self.at_line_start = line.endswith('\n') or line.endswith('\r')
+    Returns:
+        List where each element corresponds to the connection at the same index
+        in `connections`. Each element is either a `fabric.runners.Result` (on
+        success) or an `Exception` instance (on failure).
 
-    def flush(self):
-        self.target.flush()
+    This mirrors the concurrent behaviour of `ThreadingGroup.run` but operates on
+    an explicit list of `Connection` objects.
+    """
+    # Prepare a results list aligned with the input order. Each entry will
+    # contain either a `fabric.runners.Result` or an Exception instance.
+    conns: List[Connection] = list(connections)
+    results: List[Union[Any, Exception]] = [None] * len(conns)
+    lock: Lock = Lock()
 
-class PrefixedConnection(Connection):
-    def run(self, command, **kwargs):
-        # Dynamically inject the unique stream for this specific connection instance
-        if 'out_stream' not in kwargs:
-            kwargs['out_stream'] = HostPrefixStream(self.host, sys.stdout)
-        if 'err_stream' not in kwargs:
-            kwargs['err_stream'] = HostPrefixStream(self.host, sys.stderr)
-        return super().run(command, **kwargs)
+    def _worker(idx: int, conn: Connection) -> None:
+        try:
+            res = conn.run(command, **kwargs)
+            with lock:
+                results[idx] = res
+        except Exception as exc:
+            with lock:
+                results[idx] = exc
+
+    threads = []
+    for idx, c in enumerate(conns):
+        t = Thread(target=_worker, args=(idx, c))
+        t.daemon = True
+        t.start()
+        threads.append(t)
+
+    for t in threads:
+        t.join()
+
+    return results

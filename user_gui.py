@@ -8,7 +8,6 @@ import tkinter as tk
 from tkinter import ttk
 import threading
 from queue import Queue
-from fabric.group import SerialGroup
 from fabric import Connection
 
 from load_settings import load_pi_connections

@@ -1,12 +1,13 @@
 import time
 from enum import Enum
-from typing import List, Dict
+from typing import List, Dict, Optional
 from subprocess import run, CompletedProcess
-from fabric.group import SerialGroup
 
 from load_settings import load_pi_connections
 from pi_sysemd import is_active, is_reachable
 from transfer_data import remote_directories
+from fabric_tools import run_on_connections
+from fabric import Connection
 
 class PiStatus(Enum):
     UNREACHABLE = "unreachable"
@@ -19,7 +20,7 @@ class RemoteFolderStatus(Enum):
     RSYNC_ERROR = "rsync error"
     UNKNOWN_ERROR = "unknown error"
 
-def check_pi_statuses(pi_group: SerialGroup) -> Dict[str, PiStatus]:
+def check_pi_statuses(pi_group: List[Connection]) -> Dict[str, PiStatus]:
     reachable = is_reachable(pi_group)
     active = is_active(pi_group)
 
@@ -32,10 +33,10 @@ def check_pi_statuses(pi_group: SerialGroup) -> Dict[str, PiStatus]:
         else:
             statuses.append(PiStatus.REACHABLE)
 
-    names = [connection.host for connection in pi_group]
+    names = [str(c.host) for c in pi_group]
     return dict(zip(names, statuses))
 
-def check_remote_folders(folders: dict[str, str] = None) -> Dict[str, RemoteFolderStatus]:
+def check_remote_folders(folders: Optional[dict[str, str]] = None) -> Dict[str, RemoteFolderStatus]:
     statuses: Dict[str, RemoteFolderStatus] = {}
     if folders is None:
         folders = remote_directories()
@@ -71,7 +72,7 @@ def watch_pi_statuses(interval: int = 5) -> None:
     pi_group = load_pi_connections()
     while True:
         statuses = check_pi_statuses(pi_group)
-        print([status.value for status in statuses])
+        print([status.value for status in statuses.values()])
         time.sleep(interval)
 
 

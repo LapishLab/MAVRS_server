@@ -1,7 +1,7 @@
 from datetime import datetime
 from fabric import Connection
-from fabric.group import SerialGroup, ThreadingGroup
-from time import sleep
+from fabric_tools import run_on_connections
+from typing import Optional, List
 
 def send_individual_pi_command(pi_cmd: str, pi_name: str) -> None:
     """Execute a command on a single Pi using Fabric."""
@@ -10,22 +10,22 @@ def send_individual_pi_command(pi_cmd: str, pi_name: str) -> None:
     if result.failed:
         raise RuntimeError(f"Command failed on {pi_name}: {result.stderr}")
 
-def get_pi_time(pis: SerialGroup) -> list[datetime]:
+def get_pi_time(pis: List[Connection]) -> list[datetime]:
     """Get the current time from each Pi."""
-    results = pis.run("date '+%Y-%m-%d %H:%M:%S'", warn=True, hide=True)
+    results = run_on_connections(pis,"date '+%Y-%m-%d %H:%M:%S'", warn=True, hide=True)
+    results = [getattr(v, "stdout", "").strip() for v in results] # get stdout if it exists
     pi_times = []
-    for conn, task_result in results.items():
-        if task_result.failed:
+    for r in results:
+        try:
+            pi_times.append(datetime.strptime(r, "%Y-%m-%d %H:%M:%S"))
+        except Exception:
             pi_times.append(None)
-        else:
-            pi_time_str = task_result.stdout.strip()
-            pi_times.append(datetime.strptime(pi_time_str, "%Y-%m-%d %H:%M:%S"))
     return pi_times
 
-def set_time_on_pis(pis: SerialGroup) -> None:
+def set_time_on_pis(pis: List[Connection]) -> None:
     """Set clock time on Pis"""
     time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S") # Get current local time again to minimize time difference
-    pis.sudo(f"timedatectl set-time {time_str}", warn=True, pty=True, hide=True) # Set the time
+    results = run_on_connections(pis, f"timedatectl set-time {time_str}", warn=True, pty=True, hide=True) # Set the time
 
     # Verify time was set correctly
     local_time = datetime.now()
@@ -42,5 +42,5 @@ def set_time_on_pis(pis: SerialGroup) -> None:
         raise RuntimeError(f"Time on the following Pis is off by more than {t_threshold} seconds: {', '.join(over_threshold)}. Time may not have been set correctly.")    
     print("Time successfully set on all Pis.")
 
-def report_disk_space(pis: SerialGroup) -> None:
-    pis.run("sh MAVRS_pi/reportDiskSpace.sh", warn=False)
+def report_disk_space(pis: List[Connection]) -> None:
+    run_on_connections(pis, "sh MAVRS_pi/reportDiskSpace.sh", warn=False)
