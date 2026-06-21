@@ -147,7 +147,7 @@ def open_output_stream_window(host: str, connection: Connection) -> None:
     # Start updating output
     update_output()
 
-def run_user_gui(refresh_interval: int = 1000) -> None:
+def run_user_gui(refresh_interval: int = 100) -> None:
     pi_group = load_pi_connections()
     root = tk.Tk()
     root.title("MAVRS User GUI")
