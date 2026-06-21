@@ -13,16 +13,19 @@ def main() -> None:
     pis = load_pi_connections()
     settings = load_settings()
     session = get_session_name(settings)
-    initialize(pis, settings, session)
+    if not initialize(pis, settings, session):
+        return
     input("Hit enter when ready to start Pi recording")
     start_pi_recordings(pis, session)
 
-def initialize(pis: List[Connection], settings: Settings, session: str) -> None:
+def initialize(pis: List[Connection], settings: Settings, session: str) -> bool:
     set_time_on_pis(pis)
     report_disk_space(pis)
-    create_other_folders(session, settings)
+    if not create_other_folders(session, settings):
+        return False
+    return True
 
-def create_other_folders(session: str, settings: Settings) -> None:
+def create_other_folders(session: str, settings: Settings) -> bool:
     folders = settings.other_folders or {}
     for label in folders:
         print(f"creating {label} folder")
@@ -37,12 +40,19 @@ def create_other_folders(session: str, settings: Settings) -> None:
         dest = folders[label] if folders[label] else settings.local_data_path
 
         cmd = ["rsync", "-ah","--info=progress2", temp, dest]
-        run(cmd, check=True) #TODO handle, error descriptively
+        try:
+            run(cmd, check=True)
+        except Exception as e:
+            ans = input(f'Failed to create {label} folder at {dest} \n'
+                  'Continue anyway? (y/N): ')
+            if not (ans.lower()=='y' or ans.lower()=='yes'):
+                return False
 
         # Delete temporary folder
         cmd = ["rm", "-rf", temp]
         run(cmd, check=True)
         print(f"Created: {dest}/{folder_name}")
+    return True
     
 def get_session_name(settings: Settings) -> str:
     while True:
