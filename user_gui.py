@@ -223,39 +223,54 @@ def run_user_gui(refresh_interval: int = 1000) -> None:
         id = f"{label}({remote_path})"
         other_tree.insert("", "end", values=(id, "Checking..."), tags=("Checking...",))
 
-    def update_pis() -> None:
-        pi_statuses = check_pi_statuses(pi_group)
-        for item in tree.get_children():
-            tree.delete(item)
-        for name, status in pi_statuses.items():
-            tree.insert("", "end", values=(name, status.value), tags=(status.value,))
-        root.after(refresh_interval, update_pis)
+    pi_status_queue: Queue[dict[str, PiStatus]] = Queue()
+    other_status_queue: Queue[dict[str, RemoteFolderStatus]] = Queue()
+    stop_event = threading.Event()
 
+    def pi_status_worker() -> None:
+        while not stop_event.is_set():
+            statuses = check_pi_statuses(pi_group)
+            pi_status_queue.put(statuses)
+            if stop_event.wait(refresh_interval / 1000):
+                break
 
-    def update_other() -> None:
-        other_statuses = check_remote_folders()
-        for item in other_tree.get_children():
-            other_tree.delete(item)
-        if other_statuses:
-            for name, status in other_statuses.items():
-                other_tree.insert("", "end", values=(name, status.value), tags=(status.value,))
-        else:
-            other_tree.insert("", "end", values=("No remote folders configured", ""))
-        root.after(refresh_interval, update_other)
-        
-    def start_updaters() -> None:
-        thread = threading.Thread(
-            target=lambda: update_pis(),
-            daemon=True
-        )
-        thread.start()
-        thread = threading.Thread(
-            target=lambda: update_other(),
-            daemon=True
-        )
-        thread.start()
+    def other_status_worker() -> None:
+        while not stop_event.is_set():
+            statuses = check_remote_folders()
+            other_status_queue.put(statuses)
+            if stop_event.wait(refresh_interval / 1000):
+                break
 
-    root.after(0, start_updaters)
+    def process_status_queues() -> None:
+        while not pi_status_queue.empty():
+            pi_statuses = pi_status_queue.get()
+            for item in tree.get_children():
+                tree.delete(item)
+            for name, status in pi_statuses.items():
+                tree.insert("", "end", values=(name, status.value), tags=(status.value,))
+
+        while not other_status_queue.empty():
+            other_statuses = other_status_queue.get()
+            for item in other_tree.get_children():
+                other_tree.delete(item)
+            if other_statuses:
+                for name, status in other_statuses.items():
+                    other_tree.insert("", "end", values=(name, status.value), tags=(status.value,))
+            else:
+                other_tree.insert("", "end", values=("No remote folders configured", ""))
+
+        if root.winfo_exists():
+            root.after(200, process_status_queues)
+
+    def on_closing() -> None:
+        stop_event.set()
+        root.destroy()
+
+    root.protocol("WM_DELETE_WINDOW", on_closing)
+
+    threading.Thread(target=pi_status_worker, daemon=True).start()
+    threading.Thread(target=other_status_worker, daemon=True).start()
+    root.after(0, process_status_queues)
     root.mainloop()
 def open_pi_addresses_editor() -> None:
     editor_window = tk.Toplevel()
