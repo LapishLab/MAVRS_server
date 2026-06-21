@@ -1,3 +1,4 @@
+import warnings
 from datetime import datetime
 from fabric import Connection
 from fabric_tools import run_on_connections
@@ -26,20 +27,24 @@ def set_time_on_pis(pis: List[Connection]) -> None:
     """Set clock time on Pis"""
     time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S") # Get current local time again to minimize time difference
     results = run_on_connections(pis, f"timedatectl set-time {time_str}", warn=True, pty=True, hide=True) # Set the time
+    verify_times(pis)
 
+def verify_times(pis):
     # Verify time was set correctly
     local_time = datetime.now()
     pi_times = get_pi_time(pis)
 
     unparsable = [str(conn.host) for conn, t in zip(pis, pi_times) if t is None]
     if unparsable:
-        raise RuntimeError(f"Failed to get time from the following Pis: {', '.join(unparsable)}. Cannot verify time was set correctly.")
+        warnings.warn(f"Failed to get time from the following Pis: {', '.join(unparsable)}. Cannot verify time was set correctly.")
+        return
     
     t_threshold = 20.0 # seconds
     t_diff = [abs((local_time-t).total_seconds()) for t in pi_times]
     over_threshold = [str(conn.host) for conn, diff in zip(pis, t_diff) if diff > t_threshold]
     if over_threshold:
-        raise RuntimeError(f"Time on the following Pis is off by more than {t_threshold} seconds: {', '.join(over_threshold)}. Time may not have been set correctly.")    
+        warnings.warn(f"Time on the following Pis is off by more than {t_threshold} seconds: {', '.join(over_threshold)}. Time may not have been set correctly.")
+        return
     print("Time successfully set on all Pis.")
 
 def report_disk_space(pis: List[Connection]) -> None:
