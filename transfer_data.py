@@ -84,7 +84,7 @@ def get_remote_folders(settings: Settings) -> None:
     for label, remote_path in folders.items():
         print(f"Getting {label} folder")
         cmd = ["rsync", "-ah","--info=progress2", remote_path, local_data]
-        result = run(cmd, capture_output=True,text=True)  # TODO handle, error descriptively
+        result = run(cmd, capture_output=True,text=True)
         if not result.returncode == 0:
             logger.warning(f'Failed to copy {label} data from {remote_path} \n{result.stderr}')
 
