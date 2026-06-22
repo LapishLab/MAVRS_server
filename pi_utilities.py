@@ -1,8 +1,10 @@
 import warnings
-from datetime import datetime
+from datetime import datetime, timezone
+from tzlocal import get_localzone_name
 from fabric import Connection
 from fabric_tools import run_on_connections
 from typing import Optional, List
+
 
 def send_individual_pi_command(pi_cmd: str, pi_name: str) -> None:
     """Execute a command on a single Pi using Fabric."""
@@ -25,8 +27,13 @@ def get_pi_time(pis: List[Connection]) -> list[datetime]:
 
 def set_time_on_pis(pis: List[Connection]) -> None:
     """Set clock time on Pis"""
-    time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S") # Get current local time again to minimize time difference
-    results = run_on_connections(pis, f"timedatectl set-time {time_str}", warn=True, pty=True, hide=True) # Set the time
+    tz_name = get_localzone_name()
+    utc_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")    
+    cmd = (
+        f"sudo timedatectl set-timezone {tz_name}; "
+        f"sudo timedatectl set-time '{utc_time} UTC'"
+    )
+    run_on_connections(pis, cmd, warn=True, pty=True, hide=True, timeout=2)
     verify_times(pis)
 
 def verify_times(pis):
