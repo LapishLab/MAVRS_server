@@ -1,10 +1,12 @@
 from typing import Optional, List
+import logging
 from load_settings import load_pi_connections
 from fabric import Connection
 from fabric_tools import run_on_connections
 from status_checker import get_pi_statuses, PiStatus
-import warnings
 from config import ENV, UNIT, PYTHON_PATH, SCRIPT_PATH
+
+logger = logging.getLogger(__name__)
 
 def stop_process(c: List[Connection]):
     print("Sending stop command to Pis")
@@ -16,10 +18,10 @@ def start_process(c: List[Connection], session: str):
 
     for name, status in get_pi_statuses(c).items():
         if status==PiStatus.UNREACHABLE:
-            warnings.warn(f"Aborting: {name} is unreachable")
+            logger.warning(f"Aborting: {name} is unreachable")
             return
         if status==PiStatus.RUNNING:
-            warnings.warn(f"Aborting: {UNIT} is already running on {name}.")
+            logger.warning(f"Aborting: {UNIT} is already running on {name}.")
             return
     pi_cmd = f'{PYTHON_PATH} -u {SCRIPT_PATH} --session {session}'
     sysemd_cmd = f'{ENV} systemctl --user reset-failed; systemd-run --user --unit={UNIT} {pi_cmd}'
@@ -31,9 +33,9 @@ def start_process(c: List[Connection], session: str):
     else:
         for name, status in statuses.values():
             if status==PiStatus.UNREACHABLE:
-                warnings.warn(f"{name} is now unreachable")
+                logger.warning(f"{name} is now unreachable")
             elif status == PiStatus.REACHABLE:
-                warnings.warn(f"{name} did not sucessfully start {UNIT}")
+                logger.warning(f"{name} did not sucessfully start {UNIT}")
 
 def stream_logs(c: Optional[List[Connection]] = None):
     """Stream journal logs for `UNIT` from each host.

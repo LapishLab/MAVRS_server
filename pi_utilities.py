@@ -1,9 +1,11 @@
-import warnings
+import logging
 from datetime import datetime, timezone
 from tzlocal import get_localzone_name
 from fabric import Connection
 from fabric_tools import run_on_connections
 from typing import Optional, List
+
+logger = logging.getLogger(__name__)
 
 
 def send_individual_pi_command(pi_cmd: str, pi_name: str) -> None:
@@ -43,14 +45,14 @@ def verify_times(pis):
 
     unparsable = [str(conn.host) for conn, t in zip(pis, pi_times) if t is None]
     if unparsable:
-        warnings.warn(f"Failed to get time from the following Pis: {', '.join(unparsable)}. Cannot verify time was set correctly.")
+        logger.warning(f"Failed to get time from the following Pis: {', '.join(unparsable)}. Cannot verify time was set correctly.")
         return
     
     t_threshold = 20.0 # seconds
     t_diff = [abs((local_time-t).total_seconds()) for t in pi_times]
     over_threshold = [str(conn.host) for conn, diff in zip(pis, t_diff) if diff > t_threshold]
     if over_threshold:
-        warnings.warn(f"Time on the following Pis is off by more than {t_threshold} seconds: {', '.join(over_threshold)}. Time may not have been set correctly.")
+        logger.warning(f"Time on the following Pis is off by more than {t_threshold} seconds: {', '.join(over_threshold)}. Time may not have been set correctly.")
         return
     print("Time successfully set on all Pis.")
 

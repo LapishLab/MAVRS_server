@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 from subprocess import run, Popen, PIPE
+import logging
 from load_settings import load_settings, load_pi_addresses, Settings
 from pi_utilities import send_individual_pi_command
-from warnings import warn
 from pathlib import Path
 from typing import List
+
+logger = logging.getLogger(__name__)
 
 def main() -> None:
     settings = load_settings()
@@ -51,9 +53,9 @@ def transfer_pis(settings: Settings) -> None:
                     pi_cmd = 'rm -rf ' + ' '.join(scanned_folders)
                     send_individual_pi_command(pi_cmd, pi_name)
             except Exception as e:
-                warn(f"\nError automatically deleting data from {pi_name}: {e} \nYou will need to manually delete data from this Pi if this issue is not resolved")
+                logger.warning(f"\nError automatically deleting data from {pi_name}: {e} \nYou will need to manually delete data from this Pi if this issue is not resolved")
         else:
-            warn(f"Rsync failed for {pi_name}: {stderr}")
+            logger.warning(f"Rsync failed for {pi_name}: {stderr}")
             failed_transfers.append(pi_name)
     if (len(failed_transfers)==0):
         print(
@@ -84,7 +86,7 @@ def get_remote_folders(settings: Settings) -> None:
         cmd = ["rsync", "-ah","--info=progress2", remote_path, local_data]
         result = run(cmd, capture_output=True,text=True)  # TODO handle, error descriptively
         if not result.returncode == 0:
-            warn(f'Failed to copy {label} data from {remote_path} \n{result.stderr}')
+            logger.warning(f'Failed to copy {label} data from {remote_path} \n{result.stderr}')
 
 def parse_rsync_stdout(output: str) -> List[str]:
     """
