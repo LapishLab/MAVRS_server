@@ -1,413 +1,429 @@
 #!/usr/bin/env python3
-import shutil
-import subprocess
-import sys
-from pathlib import Path
-import time
-import tkinter as tk
-from tkinter import ttk
-import threading
-from queue import Queue
-from fabric import Connection
+""" PySide6 GUI scaffold for MAVRS.
 
+Provides:
+- Main window with a `QTreeView` for Pi statuses
+- Background `QThread` worker that emits status updates
+- Log stream window scaffold using `QTextEdit`
+- Editor dialog for reading/writing `PI_ADDRESS_FILE`
+
+"""
+from __future__ import annotations
+
+import shutil
+import sys
+import subprocess
+import time
+from pathlib import Path
+from typing import Optional
+
+from fabric import Connection
+from PySide6 import QtCore, QtWidgets, QtGui
+from PySide6.QtCore import QObject, Signal, Slot, QThread
+from PySide6.QtGui import QStandardItemModel, QStandardItem
+
+from config import ENV, UNIT
 from load_settings import load_pi_connections
 from path_config import PI_ADDRESS_FILE
-from status_checker import PiStatus, RemoteFolderStatus, get_pi_statuses, check_remote_folders
-from config import ENV, UNIT
-from transfer_data import remote_directories
-
-def find_terminal_emulator():
-    candidates = [
-        ("x-terminal-emulator", ["-e"]),
-        ("gnome-terminal", ["--"]),
-        ("konsole", ["-e"]),
-        ("xfce4-terminal", ["--command"]),
-        ("xterm", ["-e"]),
-    ]
-    for exe, args in candidates:
-        if shutil.which(exe):
-            return exe, args
-    raise RuntimeError(
-        "No terminal emulator found. Install xterm, gnome-terminal, konsole, xfce4-terminal, or x-terminal-emulator."
-    )
-
-def launch_script_in_terminal(script_name: str) -> None:
-    terminal, args = find_terminal_emulator()
-    script_path = Path(__file__).resolve().parent / script_name
-    command = ['sh', '-c', f'{sys.executable} {script_path}; echo "Press enter to close window..."; read dummy']
-
-    if args == ["--command"]:
-        terminal_args = [terminal] + args + [" ".join(command)]
-    else:
-        terminal_args = [terminal] + args + command
-
-    subprocess.Popen(terminal_args, cwd=script_path.parent)
+from status_checker import get_pi_statuses, PiStatus, check_remote_folders, RemoteFolderStatus
 
 
-def stream_pi_output(connection: Connection, output_queue: Queue, host: str) -> None:
-    """Periodically fetch and stream the systemd journal output from a single Pi."""
-    seen_lines = set()
-    
-    try:
-        while True:
-            try:
-                # Fetch recent journal entries
-                result = connection.run(
-                    f"{ENV} journalctl --user -u {UNIT}.service --no-pager -n 100",
-                    warn=True,
-                    hide=True
-                )
-                
-                if hasattr(result, 'stdout') and result.stdout:
-                    lines = result.stdout.strip().splitlines()
-                    # Send only new lines we haven't seen before
-                    for line in lines:
-                        if line and line not in seen_lines:
-                            output_queue.put((host, line))
-                            seen_lines.add(line)
-                            # Keep seen_lines from growing too large
-                            if len(seen_lines) > 500:
-                                # Keep only the last 300 entries
-                                seen_lines = set(list(seen_lines)[-300:])
+def find_terminal_emulator() -> tuple[str, list[str]]:
+	candidates = [
+		("x-terminal-emulator", ["-e"]),
+		("gnome-terminal", ["--"]),
+		("konsole", ["-e"]),
+		("xfce4-terminal", ["--command"]),
+		("xterm", ["-e"]),
+	]
+	for exe, args in candidates:
+		if shutil.which(exe):
+			return exe, args
+	raise RuntimeError(
+		"No terminal emulator found. Install xterm, gnome-terminal, konsole, xfce4-terminal, or x-terminal-emulator."
+	)
 
-                time.sleep(1)  # Check every second
-                
-            except Exception as e:
-                output_queue.put((host, f"[Error fetching output: {e}]"))
-                time.sleep(2)
-                
-    except Exception as e:
-        output_queue.put((host, f"[Error streaming from {host}: {e}]"))
 
-def open_output_stream_window(host: str, connection: Connection) -> None:
-    """Open a new window with streaming output for a specific Pi."""
-    output_queue: Queue = Queue()
-    
-    # Create new window
-    stream_window = tk.Toplevel()
-    stream_window.title(f"Output Stream - {host}")
-    stream_window.geometry("800x600")
-    
-    frame = ttk.Frame(stream_window, padding=8)
-    frame.pack(fill="both", expand=True)
-    
-    # Title label
-    title_label = ttk.Label(frame, text=f"Output Stream: {host}", font=("", 11, "bold"))
-    title_label.pack(fill="x", pady=(0, 8))
-    
-    # Text widget with scrollbar
-    text_frame = ttk.Frame(frame)
-    text_frame.pack(fill="both", expand=True)
-    
-    scrollbar = ttk.Scrollbar(text_frame)
-    scrollbar.pack(side="right", fill="y")
-    
-    text_widget = tk.Text(
-        text_frame,
-        wrap="word",
-        yscrollcommand=scrollbar.set,
-        font=("Courier", 9),
-        bg="#f0f0f0"
-    )
-    text_widget.pack(side="left", fill="both", expand=True)
-    scrollbar.config(command=text_widget.yview)
-    
-    # Status label
-    status_label = ttk.Label(frame, text="Streaming...", font=("", 9))
-    status_label.pack(fill="x", pady=(8, 0))
-    
-    def update_output() -> None:
-        """Update text widget with queued output."""
-        while not output_queue.empty():
-            _, line = output_queue.get()
-            text_widget.insert("end", line + "\n")
-            text_widget.see("end")
-            # Keep only last 1000 lines to avoid memory issues
-            line_count = int(text_widget.index("end-1c").split(".")[0])
-            if line_count > 1000:
-                text_widget.delete("1.0", "2.0")
-        
-        if stream_window.winfo_exists():
-            stream_window.after(500, update_output)
-    
-    def on_closing():
-        # Thread will naturally die when window is closed
-        stream_window.destroy()
-    
-    stream_window.protocol("WM_DELETE_WINDOW", on_closing)
-    
-    # Start streaming thread as daemon so it closes with window
-    thread = threading.Thread(
-        target=stream_pi_output,
-        args=(connection, output_queue, host),
-        daemon=True
-    )
-    thread.start()
-    
-    # Start updating output
-    update_output()
+def launch_script_in_terminal(script_path: Path) -> None:
+	terminal, args = find_terminal_emulator()
+	command = [
+		"sh",
+		"-c",
+		f'{sys.executable} "{script_path}"; echo "Press enter to close window..."; read dummy',
+	]
+	if args == ["--command"]:
+		terminal_args = [terminal] + args + [" ".join(command)]
+	else:
+		terminal_args = [terminal] + args + command
+	subprocess.Popen(terminal_args, cwd=script_path.parent)
 
-def run_user_gui(refresh_interval: int = 100) -> None:
-    pi_group = load_pi_connections()
-    root = tk.Tk()
-    root.title("MAVRS User GUI")
 
-    frame = ttk.Frame(root, padding=12)
-    frame.pack(fill="both", expand=True)
+class PiStatusWorker(QObject):
+	statuses_updated = Signal(dict)
+	stopped = False
 
-    button_frame = ttk.Frame(frame)
-    button_frame.pack(fill="x", pady=(0, 8))
+	@Slot()
+	def run(self) -> None:
+		"""Continuously fetch real Pi statuses and emit them."""
+		while not self.stopped:
+			try:
+				statuses = get_pi_statuses()
+				self.statuses_updated.emit(statuses)
+			except Exception:
+				pass
+			time.sleep(2)
 
-    start_button = ttk.Button(
-        button_frame,
-        text="Start Experiment",
-        command=lambda: launch_script_in_terminal("start_experiment.py"),
-    )
-    stop_button = ttk.Button(
-        button_frame,
-        text="Stop Experiment",
-        command=lambda: launch_script_in_terminal("stop_experiment.py"),
-    )
-    start_button.pack(side="left", padx=(0, 8))
-    stop_button.pack(side="left")
+	def stop(self) -> None:
+		self.stopped = True
 
-    edit_pi_addresses_button = ttk.Button(
-        button_frame,
-        text="Edit Pi Addresses",
-        command=open_pi_addresses_editor,
-    )
-    edit_pi_addresses_button.pack(side="left", padx=(8, 0))
 
-    tree = ttk.Treeview(frame, columns=("host", "status"), show="headings", height=10)
-    tree.heading("host", text="Pi Address")
-    tree.heading("status", text="Status")
-    tree.column("host", width=260, anchor="w")
-    tree.column("status", width=120, anchor="center")
-    tree.pack(fill="both", expand=True)
+class FolderStatusWorker(QObject):
+	folder_statuses_updated = Signal(dict)
+	stopped = False
 
-    tree.tag_configure(PiStatus.RUNNING.value, foreground="green")
-    tree.tag_configure(PiStatus.REACHABLE.value, foreground="orange")
-    tree.tag_configure(PiStatus.UNREACHABLE.value, foreground="red")
+	@Slot()
+	def run(self) -> None:
+		"""Continuously fetch remote folder statuses and emit them."""
+		while not self.stopped:
+			try:
+				folder_statuses = check_remote_folders()
+				self.folder_statuses_updated.emit(folder_statuses)
+			except Exception:
+				pass
+			time.sleep(2)
 
-    other_tree = ttk.Treeview(frame, columns=("remote", "status"), show="headings", height=6)
-    other_tree.heading("remote", text="Remote Folder")
-    other_tree.heading("status", text="Status")
-    other_tree.column("remote", width=360, anchor="w")
-    other_tree.column("status", width=120, anchor="center")
-    other_tree.pack(fill="both", expand=True)
+	def stop(self) -> None:
+		self.stopped = True
 
-    other_tree.tag_configure(RemoteFolderStatus.REACHABLE.value, foreground="green")
-    other_tree.tag_configure(RemoteFolderStatus.RSYNC_ERROR.value, foreground="red")
-    other_tree.tag_configure(RemoteFolderStatus.UNREACHABLE.value, foreground="red")
-    other_tree.tag_configure(RemoteFolderStatus.UNKNOWN_ERROR.value, foreground="red")
-    
-    def on_tree_double_click(event):
-        """Open output stream window when a row is double-clicked."""
-        item = tree.selection()[0] if tree.selection() else None
-        if item:
-            values = tree.item(item, "values")
-            host = values[0]
-            # Find the connection object for this host
-            for connection in pi_group:
-                if connection.host == host:
-                    open_output_stream_window(host, connection)
-                    break
 
-    tree.bind("<Double-1>", on_tree_double_click)         
+class LogStreamWorker(QObject):
+	new_line = Signal(str)
+	finished = Signal()
 
-    
-    for connection in pi_group:
-        tree.insert("", "end", values=(connection.host, "Checking..."), tags=("Checking...",))
+	def __init__(self, connection: Connection, host: str) -> None:
+		super().__init__()
+		self.connection = connection
+		self.host = host
+		self.stopped = False
+		self._buffer = ""
+		self._promise = None
 
-    for label, remote_path in remote_directories().items():
-        id = f"{label}({remote_path})"
-        other_tree.insert("", "end", values=(id, "Checking..."), tags=("Checking...",))
+	def write(self, data: str) -> None:
+		if isinstance(data, bytes):
+			data = data.decode("utf-8", errors="replace")
+		self._buffer += data
+		while "\n" in self._buffer:
+			line, self._buffer = self._buffer.split("\n", 1)
+			if line:
+				self.new_line.emit(line)
 
-    pi_status_queue: Queue[dict[str, PiStatus]] = Queue()
-    other_status_queue: Queue[dict[str, RemoteFolderStatus]] = Queue()
-    stop_event = threading.Event()
+	def flush(self) -> None:
+		if self._buffer:
+			self.new_line.emit(self._buffer)
+			self._buffer = ""
 
-    def pi_status_worker() -> None:
-        while not stop_event.is_set():
-            statuses = get_pi_statuses(pi_group)
-            pi_status_queue.put(statuses)
-            if stop_event.wait(refresh_interval / 1000):
-                break
+	def isatty(self) -> bool:
+		return False
 
-    def other_status_worker() -> None:
-        while not stop_event.is_set():
-            statuses = check_remote_folders()
-            other_status_queue.put(statuses)
-            if stop_event.wait(refresh_interval / 1000):
-                break
+	@Slot()
+	def run(self) -> None:
+		try:
+			self._promise = self.connection.run(
+				f"{ENV} journalctl --user -u {UNIT}.service -f --no-pager",
+				warn=True,
+				hide=True,
+				asynchronous=True,
+				out_stream=self,
+				err_stream=self,
+				pty=False,
+			)
+			# Block until the remote journal stream exits or is cancelled.
+			self._promise.join()
+		except Exception as exc:
+			self.new_line.emit(f"[Error streaming output from {self.host}: {exc}]")
+		finally:
+			self.finished.emit()
 
-    def process_status_queues() -> None:
-        while not pi_status_queue.empty():
-            pi_statuses = pi_status_queue.get()
-            for item in tree.get_children():
-                tree.delete(item)
-            for name, status in pi_statuses.items():
-                tree.insert("", "end", values=(name, status.value), tags=(status.value,))
+	def stop(self) -> None:
+		self.stopped = True
+		if self._promise is not None:
+			try:
+				if hasattr(self._promise, "runner") and hasattr(self._promise.runner, "kill"):
+					self._promise.runner.kill()
+				else:
+					self._promise.join()
+			except Exception:
+				pass
 
-        while not other_status_queue.empty():
-            other_statuses = other_status_queue.get()
-            for item in other_tree.get_children():
-                other_tree.delete(item)
-            if other_statuses:
-                for name, status in other_statuses.items():
-                    other_tree.insert("", "end", values=(name, status.value), tags=(status.value,))
-            else:
-                other_tree.insert("", "end", values=("No remote folders configured", ""))
 
-        if root.winfo_exists():
-            root.after(200, process_status_queues)
+class LogStreamWindow(QtWidgets.QWidget):
+	closed = Signal(str)
 
-    def on_closing() -> None:
-        stop_event.set()
-        root.destroy()
+	def __init__(self, host: str, connection: Connection, parent: QtWidgets.QWidget | None = None) -> None:
+		super().__init__(parent, QtCore.Qt.Window)
+		self.host = host
+		self.connection = connection
+		self.setWindowTitle(f"Output Stream - {host}")
+		self.resize(800, 600)
+		layout = QtWidgets.QVBoxLayout(self)
+		self.text = QtWidgets.QTextEdit()
+		self.text.setReadOnly(True)
+		layout.addWidget(self.text)
 
-    root.protocol("WM_DELETE_WINDOW", on_closing)
+		self.worker = LogStreamWorker(connection, host)
+		self.worker_thread = QThread(self)
+		self.worker.moveToThread(self.worker_thread)
+		self.worker.new_line.connect(self.append_line)
+		self.worker.finished.connect(self.worker_thread.quit)
+		self.worker_thread.started.connect(self.worker.run)
+		self.worker_thread.start()
 
-    threading.Thread(target=pi_status_worker, daemon=True).start()
-    threading.Thread(target=other_status_worker, daemon=True).start()
-    root.after(0, process_status_queues)
-    root.mainloop()
-def open_pi_addresses_editor() -> None:
-    editor_window = tk.Toplevel()
-    editor_window.title("Edit Pi Addresses")
-    editor_window.geometry("560x420")
+	def append_line(self, line: str) -> None:
+		self.text.append(line)
+		self.text.ensureCursorVisible()
 
-    frame = ttk.Frame(editor_window, padding=10)
-    frame.pack(fill="both", expand=True)
+	def closeEvent(self, event: QtGui.QCloseEvent) -> None:
+		self.worker.stop()
+		self.worker_thread.quit()
+		self.worker_thread.wait(2000)
+		self.closed.emit(self.host)
+		super().closeEvent(event)
 
-    label = ttk.Label(
-        frame,
-        text=f"Edit Pi addresses file: {PI_ADDRESS_FILE}",
-        font=("", 10, "bold"),
-    )
-    label.pack(fill="x", pady=(0, 8))
 
-    # Load file content
-    try:
-        with open(PI_ADDRESS_FILE, "r") as f:
-            raw_lines = f.read().splitlines()
-    except FileNotFoundError:
-        raw_lines = []
-    except Exception as exc:
-        raw_lines = [f"# Error reading file: {exc}"]
+class PiEditorDialog(QtWidgets.QDialog):
+	def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
+		super().__init__(parent)
+		self.setWindowTitle("Edit Pi Addresses")
+		self.resize(560, 420)
+		layout = QtWidgets.QVBoxLayout(self)
 
-    # Scrolling frame to hold rows of (checkbox, main, comment)
-    rows_container = ttk.Frame(frame)
-    rows_container.pack(fill="both", expand=True)
+		self.scroll = QtWidgets.QScrollArea()
+		self.scroll.setWidgetResizable(True)
+		self.container = QtWidgets.QWidget()
+		self.grid = QtWidgets.QGridLayout(self.container)
+		self.scroll.setWidget(self.container)
+		layout.addWidget(self.scroll)
 
-    canvas = tk.Canvas(rows_container)
-    v_scroll = ttk.Scrollbar(rows_container, orient="vertical", command=canvas.yview)
-    canvas.configure(yscrollcommand=v_scroll.set)
-    v_scroll.pack(side="right", fill="y")
-    canvas.pack(side="left", fill="both", expand=True)
+		# buttons
+		btn_layout = QtWidgets.QHBoxLayout()
+		self.btn_add = QtWidgets.QPushButton("Add Row")
+		self.btn_save = QtWidgets.QPushButton("Save")
+		self.btn_close = QtWidgets.QPushButton("Close")
+		btn_layout.addWidget(self.btn_add)
+		btn_layout.addWidget(self.btn_save)
+		btn_layout.addWidget(self.btn_close)
+		layout.addLayout(btn_layout)
 
-    inner_frame = ttk.Frame(canvas)
-    canvas.create_window((0, 0), window=inner_frame, anchor="nw")
+		self.rows: list[tuple[QtWidgets.QCheckBox, QtWidgets.QLineEdit, QtWidgets.QLineEdit]] = []
+		self.btn_add.clicked.connect(self.add_row)
+		self.btn_save.clicked.connect(self.save)
+		self.btn_close.clicked.connect(self.close)
 
-    def _on_canvas_config(event):
-        canvas.configure(scrollregion=canvas.bbox("all"))
+		self.load_file()
 
-    inner_frame.bind("<Configure>", _on_canvas_config)
+	def load_file(self) -> None:
+		p = Path(PI_ADDRESS_FILE)
+		lines: list[str] = []
+		if p.exists():
+			lines = p.read_text().splitlines()
+		for line in lines:
+			checked, main, comment = self.parse_line(line)
+			self.add_row(checked, main, comment)
 
-    # Header
-    hdr_chk = ttk.Label(inner_frame, text=" ", width=3)
-    hdr_main = ttk.Label(inner_frame, text="Address ", width=40, anchor="w")
-    hdr_cmt = ttk.Label(inner_frame, text="Comment", width=40, anchor="w")
-    hdr_chk.grid(row=0, column=0, padx=3, pady=2)
-    hdr_main.grid(row=0, column=1, padx=3, pady=2, sticky="w")
-    hdr_cmt.grid(row=0, column=2, padx=3, pady=2, sticky="w")
+	def parse_line(self, line: str) -> tuple[bool, str, str]:
+		raw = line.strip()
+		if raw.startswith("#"):
+			checked = False
+			raw = raw.lstrip("#").strip()
+		else:
+			checked = True
+		main, _sep, comment = raw.partition('#')
+		return checked, main.strip(), comment.strip()
 
-    # Store row widgets and state
-    editor_rows = []  # list of (var, entry_main, entry_comment)
+	def add_row(self, checked: bool = True, main: str = "", comment: str = "") -> None:
+		row = len(self.rows)
+		chk = QtWidgets.QCheckBox()
+		chk.setChecked(checked)
+		edt_main = QtWidgets.QLineEdit(main)
+		edt_cmt = QtWidgets.QLineEdit(comment)
+		self.grid.addWidget(chk, row, 0)
+		self.grid.addWidget(edt_main, row, 1)
+		self.grid.addWidget(edt_cmt, row, 2)
+		self.rows.append((chk, edt_main, edt_cmt))
 
-    def parse_line(line: str):
-        line = line.strip()
-        # Detect commented lines (starting with '#', possibly with leading spaces)
-        if line.startswith("#"):
-            checked = False
-            line = line.lstrip("#").strip()
-        else:   
-            checked = True
-        # Split remaining portion by next instance of '#'
-        main, _ ,comment = line.partition('#')
-        return checked, main, comment
+	def save(self) -> None:
+		out_lines: list[str] = []
+		for chk, edt_main, edt_cmt in self.rows:
+			main = edt_main.text().rstrip()
+			c = edt_cmt.text().strip()
+			if not main and not c:
+				out_lines.append("")
+				continue
+			if c:
+				line = f"{main} # {c}" if main else f"# {c}"
+			else:
+				line = main
+			if not chk.isChecked():
+				if not line.startswith("#"):
+					line = f"# {line}"
+			out_lines.append(line)
+		Path(PI_ADDRESS_FILE).write_text("\n".join(out_lines) + "\n")
+		QtWidgets.QMessageBox.information(self, "Saved", "Saved successfully")
 
-    def add_row(checked: bool, main: str, comment: str):
-        row_idx = len(editor_rows) + 1
-        var = tk.IntVar(value=1 if checked else 0)
-        chk = tk.Checkbutton(inner_frame, variable=var)
-        chk.grid(row=row_idx, column=0, padx=3, pady=2)
 
-        entry_main = ttk.Entry(inner_frame, width=80)
-        entry_main.insert(0, main)
-        entry_main.grid(row=row_idx, column=1, padx=3, pady=2, sticky="we")
+class MainWindow(QtWidgets.QMainWindow):
+	def __init__(self) -> None:
+		super().__init__()
+		self.setWindowTitle("MAVRS - PySide6 Port (Scaffold)")
+		self.resize(1100, 720)
 
-        entry_cmt = ttk.Entry(inner_frame, width=40)
-        entry_cmt.insert(0, comment)
-        entry_cmt.grid(row=row_idx, column=2, padx=3, pady=2, sticky="we")
+		central = QtWidgets.QWidget()
+		self.setCentralWidget(central)
+		layout = QtWidgets.QVBoxLayout(central)
 
-        editor_rows.append((var, entry_main, entry_cmt))
+		# top buttons
+		btn_layout = QtWidgets.QHBoxLayout()
+		self.btn_start = QtWidgets.QPushButton("Start Experiment")
+		self.btn_stop = QtWidgets.QPushButton("Stop Experiment")
+		self.btn_edit = QtWidgets.QPushButton("Edit Pi Addresses")
+		btn_layout.addWidget(self.btn_start)
+		btn_layout.addWidget(self.btn_stop)
+		btn_layout.addWidget(self.btn_edit)
+		layout.addLayout(btn_layout)
 
-    # Populate rows
-    for raw in raw_lines:
-        if raw.strip():
-            checked, main, comment = parse_line(raw)
-            add_row(checked, main, comment)
+		# tree view for pi statuses
+		self.tree = QtWidgets.QTreeView()
+		self.model = QStandardItemModel(0, 2)
+		self.model.setHeaderData(0, QtCore.Qt.Horizontal, "Pi Address")
+		self.model.setHeaderData(1, QtCore.Qt.Horizontal, "Status")
+		self.tree.setModel(self.model)
+		self.tree.setRootIsDecorated(False)
+		layout.addWidget(self.tree)
 
-    status_label = ttk.Label(frame, text="")
-    status_label.pack(fill="x", pady=(8, 0))
+		# other tree (remote folders)
+		self.other_tree = QtWidgets.QTreeView()
+		self.other_model = QStandardItemModel(0, 2)
+		self.other_model.setHeaderData(0, QtCore.Qt.Horizontal, "Remote Folder")
+		self.other_model.setHeaderData(1, QtCore.Qt.Horizontal, "Status")
+		self.other_tree.setModel(self.other_model)
+		layout.addWidget(self.other_tree)
 
-    def build_lines_from_rows():
-        out_lines = []
-        for var, entry_main, entry_cmt in editor_rows:
-            checked = bool(var.get())
-            main = entry_main.get().rstrip()
-            comment = entry_cmt.get().strip()
-            if not main and not comment:
-                out_lines.append("")
-                continue
-            if comment:
-                line = f"{main} # {comment}" if main else f"# {comment}"
-            else:
-                line = main
-            if not checked:
-                if not line.startswith("#"):
-                    line = f"# {line}"
-            out_lines.append(line)
-        return out_lines
+		self.connections = load_pi_connections()
 
-    def save_addresses() -> None:
-        try:
-            lines = build_lines_from_rows()
-            with open(PI_ADDRESS_FILE, "w") as f:
-                f.write("\n".join(lines) + "\n")
-            status_label.config(text="Saved successfully.")
-        except Exception as exc:
-            status_label.config(text=f"Failed to save: {exc}")
+		# connections
+		self.btn_start.clicked.connect(self.start_experiment)
+		self.btn_stop.clicked.connect(self.stop_experiment)
+		self.btn_edit.clicked.connect(self.open_editor)
+		self.tree.doubleClicked.connect(self.open_log_stream)
 
-    button_frame = ttk.Frame(frame)
-    button_frame.pack(fill="x", pady=(8, 0))
+		# start pi status worker (separate thread)
+		self.pi_worker = PiStatusWorker()
+		self.pi_thread = QThread()
+		self.pi_worker.moveToThread(self.pi_thread)
+		self.pi_thread.started.connect(self.pi_worker.run)
+		self.pi_worker.statuses_updated.connect(self.update_statuses)
+		self.pi_thread.start()
 
-    add_button = ttk.Button(button_frame, text="Add Row", command=lambda: add_row(True, "", ""))
-    save_button = ttk.Button(button_frame, text="Save", command=save_addresses)
-    close_button = ttk.Button(button_frame, text="Close", command=editor_window.destroy)
-    add_button.pack(side="left")
-    save_button.pack(side="left", padx=(8, 0))
-    close_button.pack(side="left", padx=(8, 0))
+		# start folder status worker (separate thread)
+		self.folder_worker = FolderStatusWorker()
+		self.folder_thread = QThread()
+		self.folder_worker.moveToThread(self.folder_thread)
+		self.folder_thread.started.connect(self.folder_worker.run)
+		self.folder_worker.folder_statuses_updated.connect(self.update_folder_statuses)
+		self.folder_thread.start()
 
-    def on_closing() -> None:
-        editor_window.destroy()
+		self.log_windows: dict[str, LogStreamWindow] = {}
 
-    editor_window.protocol("WM_DELETE_WINDOW", on_closing)
-    return
+	@Slot(dict)
+	def update_statuses(self, statuses: dict) -> None:
+		self.model.removeRows(0, self.model.rowCount())
+		for host, status in statuses.items():
+			host_item = QStandardItem(host)
+			status_item = QStandardItem(status.value)
+			# color by status
+			if status == "RUNNING":
+				status_item.setForeground(QtGui.QBrush(QtGui.QColor("green")))
+			elif status == "REACHABLE":
+				status_item.setForeground(QtGui.QBrush(QtGui.QColor("orange")))
+			else:
+				status_item.setForeground(QtGui.QBrush(QtGui.QColor("red")))
+			self.model.appendRow([host_item, status_item])
+
+	def update_folder_statuses(self, folder_statuses: dict) -> None:
+		self.other_model.removeRows(0, self.other_model.rowCount())
+		for folder_id, status in folder_statuses.items():
+			folder_item = QStandardItem(folder_id)
+			status_item = QStandardItem(status.value)
+			# color by status
+			if status == RemoteFolderStatus.REACHABLE:
+				status_item.setForeground(QtGui.QBrush(QtGui.QColor("green")))
+			elif status == RemoteFolderStatus.RSYNC_ERROR:
+				status_item.setForeground(QtGui.QBrush(QtGui.QColor("orange")))
+			else:
+				status_item.setForeground(QtGui.QBrush(QtGui.QColor("red")))
+			self.other_model.appendRow([folder_item, status_item])
+
+	def open_log_stream(self, index: QtCore.QModelIndex) -> None:
+		host = self.model.item(index.row(), 0).text()
+		if host in self.log_windows:
+			self.log_windows[host].raise_()
+			return
+
+		connection = next((c for c in self.connections if c.host == host), None)
+		if connection is None:
+			QtWidgets.QMessageBox.warning(self, "Log Stream", f"No connection found for host: {host}")
+			return
+
+		win = LogStreamWindow(host, connection)
+		win.closed.connect(self._on_log_window_closed)
+		self.log_windows[host] = win
+		win.show()
+
+	def _on_log_window_closed(self, host: str) -> None:
+		self.log_windows.pop(host, None)
+
+	def start_experiment(self) -> None:
+		script_path = Path(__file__).resolve().parent / "start_experiment.py"
+		try:
+			launch_script_in_terminal(script_path)
+			QtWidgets.QMessageBox.information(self, "Start Experiment", "Started experiment runner in a new terminal window.")
+		except Exception as exc:
+			QtWidgets.QMessageBox.critical(self, "Error", f"Failed to start experiment: {exc}")
+
+	def stop_experiment(self) -> None:
+		script_path = Path(__file__).resolve().parent / "stop_experiment.py"
+		try:
+			launch_script_in_terminal(script_path)
+			QtWidgets.QMessageBox.information(self, "Stop Experiment", "Started stop experiment runner in a new terminal window.")
+		except Exception as exc:
+			QtWidgets.QMessageBox.critical(self, "Error", f"Failed to stop experiment: {exc}")
+
+	def open_editor(self) -> None:
+		dlg = PiEditorDialog(self)
+		dlg.exec()
+
+	def closeEvent(self, event: QtGui.QCloseEvent) -> None:
+		# stop status worker threads cleanly
+		self.pi_worker.stop()
+		self.pi_thread.quit()
+		self.pi_thread.wait(2000)
+
+		self.folder_worker.stop()
+		self.folder_thread.quit()
+		self.folder_thread.wait(2000)
+
+		# close any open log streaming windows cleanly
+		for win in list(self.log_windows.values()):
+			win.close()
+		super().closeEvent(event)
+
 
 def main() -> None:
-    run_user_gui()
+	app = QtWidgets.QApplication(sys.argv)
+	win = MainWindow()
+	win.show()
+	sys.exit(app.exec())
+
 
 if __name__ == "__main__":
-    main()
+	main()
