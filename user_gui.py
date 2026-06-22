@@ -160,7 +160,7 @@ class LogStreamWindow(QtWidgets.QWidget):
 	closed = Signal(str)
 
 	def __init__(self, host: str, connection: Connection, parent: QtWidgets.QWidget | None = None) -> None:
-		super().__init__(parent, QtCore.Qt.Window)
+		super().__init__(parent, QtCore.Qt.WindowType.Window)
 		self.host = host
 		self.connection = connection
 		self.setWindowTitle(f"Output Stream - {host}")
@@ -197,12 +197,12 @@ class PiEditorDialog(QtWidgets.QDialog):
 		self.resize(560, 420)
 		layout = QtWidgets.QVBoxLayout(self)
 
-		self.scroll = QtWidgets.QScrollArea()
-		self.scroll.setWidgetResizable(True)
+		self.scroll_area = QtWidgets.QScrollArea()
+		self.scroll_area.setWidgetResizable(True)
 		self.container = QtWidgets.QWidget()
 		self.grid = QtWidgets.QGridLayout(self.container)
-		self.scroll.setWidget(self.container)
-		layout.addWidget(self.scroll)
+		self.scroll_area.setWidget(self.container)
+		layout.addWidget(self.scroll_area)
 
 		# buttons
 		btn_layout = QtWidgets.QHBoxLayout()
@@ -294,8 +294,8 @@ class MainWindow(QtWidgets.QMainWindow):
 		# tree view for pi statuses
 		self.tree = QtWidgets.QTreeView()
 		self.model = QStandardItemModel(0, 2)
-		self.model.setHeaderData(0, QtCore.Qt.Horizontal, "Pi Address")
-		self.model.setHeaderData(1, QtCore.Qt.Horizontal, "Status")
+		self.model.setHeaderData(0, QtCore.Qt.Orientation.Horizontal, "Pi Address")
+		self.model.setHeaderData(1, QtCore.Qt.Orientation.Horizontal, "Status")
 		self.tree.setModel(self.model)
 		self.tree.setRootIsDecorated(False)
 		layout.addWidget(self.tree)
@@ -303,8 +303,8 @@ class MainWindow(QtWidgets.QMainWindow):
 		# other tree (remote folders)
 		self.other_tree = QtWidgets.QTreeView()
 		self.other_model = QStandardItemModel(0, 2)
-		self.other_model.setHeaderData(0, QtCore.Qt.Horizontal, "Remote Folder")
-		self.other_model.setHeaderData(1, QtCore.Qt.Horizontal, "Status")
+		self.other_model.setHeaderData(0, QtCore.Qt.Orientation.Horizontal, "Remote Folder")
+		self.other_model.setHeaderData(1, QtCore.Qt.Orientation.Horizontal, "Status")
 		self.other_tree.setModel(self.other_model)
 		layout.addWidget(self.other_tree)
 
