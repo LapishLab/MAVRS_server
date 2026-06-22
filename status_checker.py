@@ -70,16 +70,22 @@ def check_remote_folders(folders: Optional[dict[str, str]] = None) -> Dict[str, 
     return statuses
 
 
-def watch_pi_statuses(interval: int = 5) -> None:
+def stream_statuses(interval: int = 5) -> None:
     while True:
+        print('--- Pi Statuses ---')
         statuses = get_pi_statuses()
         for name, status in statuses.items():
-            print(f'{name}: {status}')
+            print(f'{name}: {status.value}')
+        
+        print('--- Other Folder Statuses ---')
+        statuses = check_remote_folders()
+        for name, status in statuses.items():
+            print(f'{name}: {status.value}')
         time.sleep(interval)
 
 
 def main() -> None:
-    watch_pi_statuses()
+    stream_statuses()
 
 if __name__ == "__main__":
     main()
