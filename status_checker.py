@@ -4,7 +4,7 @@ from typing import List, Dict, Optional
 from subprocess import run, CompletedProcess
 
 from load_settings import load_pi_connections
-from pi_sysemd import is_active, is_reachable, ENV, UNIT
+from config import ENV, UNIT
 from transfer_data import remote_directories
 from fabric_tools import run_on_connections
 from fabric import Connection

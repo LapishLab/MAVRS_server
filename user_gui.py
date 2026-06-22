@@ -13,7 +13,7 @@ from fabric import Connection
 from load_settings import load_pi_connections
 from path_config import PI_ADDRESS_FILE
 from status_checker import PiStatus, RemoteFolderStatus, get_pi_statuses, check_remote_folders
-from pi_sysemd import ENV, UNIT
+from config import ENV, UNIT
 from transfer_data import remote_directories
 
 def find_terminal_emulator():
