@@ -340,10 +340,10 @@ class MainWindow(QtWidgets.QMainWindow):
 		for host, status in statuses.items():
 			host_item = QStandardItem(host)
 			status_item = QStandardItem(status.value)
-			# color by status
-			if status == "RUNNING":
+			# color by status (compare against PiStatus enum)
+			if status == PiStatus.RUNNING:
 				status_item.setForeground(QtGui.QBrush(QtGui.QColor("green")))
-			elif status == "REACHABLE":
+			elif status == PiStatus.REACHABLE:
 				status_item.setForeground(QtGui.QBrush(QtGui.QColor("orange")))
 			else:
 				status_item.setForeground(QtGui.QBrush(QtGui.QColor("red")))
