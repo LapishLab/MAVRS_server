@@ -12,7 +12,7 @@ from fabric import Connection
 
 from load_settings import load_pi_connections
 from path_config import PI_ADDRESS_FILE
-from status_checker import PiStatus, RemoteFolderStatus, check_pi_statuses, check_remote_folders
+from status_checker import PiStatus, RemoteFolderStatus, get_pi_statuses, check_remote_folders
 from pi_sysemd import ENV, UNIT
 from transfer_data import remote_directories
 
@@ -229,7 +229,7 @@ def run_user_gui(refresh_interval: int = 100) -> None:
 
     def pi_status_worker() -> None:
         while not stop_event.is_set():
-            statuses = check_pi_statuses(pi_group)
+            statuses = get_pi_statuses(pi_group)
             pi_status_queue.put(statuses)
             if stop_event.wait(refresh_interval / 1000):
                 break

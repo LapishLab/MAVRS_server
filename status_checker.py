@@ -4,7 +4,7 @@ from typing import List, Dict, Optional
 from subprocess import run, CompletedProcess
 
 from load_settings import load_pi_connections
-from pi_sysemd import is_active, is_reachable
+from pi_sysemd import is_active, is_reachable, ENV, UNIT
 from transfer_data import remote_directories
 from fabric_tools import run_on_connections
 from fabric import Connection
@@ -20,21 +20,23 @@ class RemoteFolderStatus(Enum):
     RSYNC_ERROR = "rsync error"
     UNKNOWN_ERROR = "unknown error"
 
-def check_pi_statuses(pi_group: List[Connection]) -> Dict[str, PiStatus]:
-    reachable = is_reachable(pi_group)
-    active = is_active(pi_group)
 
-    statuses: List[PiStatus] = []
-    for reach, act in zip(reachable, active):
-        if not reach:
-            statuses.append(PiStatus.UNREACHABLE)
-        elif act:
-            statuses.append(PiStatus.RUNNING)
-        else:
-            statuses.append(PiStatus.REACHABLE)
-
+def get_pi_statuses(pi_group: Optional[List[Connection]] = None) -> Dict[str, PiStatus]:
+    if pi_group is None:
+        pi_group = load_pi_connections()
+    results = run_on_connections(pi_group, f"{ENV} systemctl --user is-active {UNIT}.service", warn=True, hide=True, timeout=2)
+    statuses = [result_2_status(r) for r in results]
     names = [str(c.host) for c in pi_group]
-    return dict(zip(names, statuses))
+    return dict(zip(names, statuses)) 
+
+def result_2_status(result):  
+    if isinstance(result, BaseException):
+        return PiStatus.UNREACHABLE
+    if getattr(result, "stdout", "").strip() == "active":
+        return PiStatus.RUNNING
+    else:
+        return PiStatus.REACHABLE
+    
 
 def check_remote_folders(folders: Optional[dict[str, str]] = None) -> Dict[str, RemoteFolderStatus]:
     statuses: Dict[str, RemoteFolderStatus] = {}
@@ -69,10 +71,10 @@ def check_remote_folders(folders: Optional[dict[str, str]] = None) -> Dict[str, 
 
 
 def watch_pi_statuses(interval: int = 5) -> None:
-    pi_group = load_pi_connections()
     while True:
-        statuses = check_pi_statuses(pi_group)
-        print([status.value for status in statuses.values()])
+        statuses = get_pi_statuses()
+        for name, status in statuses.items():
+            print(f'{name}: {status}')
         time.sleep(interval)
 
 
