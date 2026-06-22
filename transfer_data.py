@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from subprocess import run, Popen, PIPE
 import logging
-from load_settings import load_settings, load_pi_addresses, Settings
+from load_settings import load_settings, load_pi_addresses, Settings, other_folders_save_root
 from pi_utilities import send_individual_pi_command
 from pathlib import Path
 from typing import List
@@ -72,16 +72,12 @@ def transfer_pis(settings: Settings) -> None:
             f'\n------------------------'
             )
 
-def remote_directories(settings: Settings = None) -> dict[str, str]:
-    if not settings:
-        settings = load_settings()
-    folders = settings.other_folders
-    return {k:v for k,v in folders.items() if v is not None}
-
 def get_remote_folders(settings: Settings) -> None:
     local_data = settings.local_data_path
-    folders = remote_directories(settings)
+    folders = other_folders_save_root(settings)
     for label, remote_path in folders.items():
+        if remote_path == local_data: #Skip transfer if already saved in local path
+            continue
         print(f"Getting {label} folder")
         cmd = ["rsync", "-ah","--info=progress2", remote_path, local_data]
         result = run(cmd, capture_output=True,text=True)

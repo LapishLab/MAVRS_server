@@ -3,9 +3,8 @@ from enum import Enum
 from typing import List, Dict, Optional
 from subprocess import run, CompletedProcess
 
-from load_settings import load_pi_connections
+from load_settings import load_pi_connections, other_folders_save_root
 from config import ENV, UNIT
-from transfer_data import remote_directories
 from fabric_tools import run_on_connections
 from fabric import Connection
 
@@ -38,10 +37,10 @@ def result_2_status(result):
         return PiStatus.REACHABLE
     
 
-def check_remote_folders(folders: Optional[dict[str, str]] = None) -> Dict[str, RemoteFolderStatus]:
+def check_other_folders_statuses(folders: Optional[dict[str, str]] = None) -> Dict[str, RemoteFolderStatus]:
     statuses: Dict[str, RemoteFolderStatus] = {}
     if folders is None:
-        folders = remote_directories()
+        folders = other_folders_save_root()
 
     for label, remote_path in folders.items():
         id = f"{label}({remote_path})"
@@ -78,7 +77,7 @@ def stream_statuses(interval: int = 5) -> None:
             print(f'{name}: {status.value}')
         
         print('--- Other Folder Statuses ---')
-        statuses = check_remote_folders()
+        statuses = check_other_folders_statuses()
         for name, status in statuses.items():
             print(f'{name}: {status.value}')
         time.sleep(interval)

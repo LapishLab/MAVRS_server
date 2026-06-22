@@ -1,6 +1,6 @@
 from subprocess import run
 from datetime import datetime
-from load_settings import load_pi_connections, load_settings, load_experiment_names, Settings
+from load_settings import load_pi_connections, load_settings, load_experiment_names, Settings, other_folders_save_root
 from pathlib import Path
 from pi_utilities import set_time_on_pis, report_disk_space
 from re import search, sub
@@ -26,8 +26,8 @@ def initialize(pis: List[Connection], settings: Settings, session: str) -> bool:
     return True
 
 def create_other_folders(session: str, settings: Settings) -> bool:
-    folders = settings.other_folders or {}
-    for label in folders:
+    folders = other_folders_save_root()
+    for label, dest in folders.items():
         print(f"creating {label} folder")
         
         # create folder in temporary location
@@ -37,8 +37,6 @@ def create_other_folders(session: str, settings: Settings) -> bool:
         run(cmd, check=True)
 
         # copy folder to destination
-        dest = folders[label] if folders[label] else settings.local_data_path
-
         cmd = ["rsync", "-ah","--info=progress2", temp, dest]
         try:
             run(cmd, check=True)

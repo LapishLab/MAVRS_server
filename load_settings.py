@@ -42,7 +42,7 @@ def load_pi_connections() -> List[Connection]:
     pi_names = load_pi_addresses()
     config = Config(overrides={
         'sudo': {'password': ' '},
-        'timeouts':{'connect':10},
+        'timeouts':{'connect':5},
         'transport':{'keepalive', 30},
         })
     return [Connection(host=h, config=config) for h in pi_names]
@@ -53,6 +53,14 @@ def read_lines(file: Union[str, Path]) -> List[str]:
     lines = [l.partition('#')[0].strip() for l in lines] # remove any thing after '#' character
     lines = [l for l in lines if l] #remove empty lines
     return lines
+
+def other_folders_save_root(settings: Optional[Settings] = None) -> dict[str, str]:
+    if not settings:
+        settings = load_settings()
+    folders = settings.other_folders
+    # Add local data path if none specified
+    folders = {k: (settings.local_data_path if v is None else v) for k, v in folders.items()}
+    return folders
 
 def test() -> None:
     settings = load_settings()

@@ -25,7 +25,7 @@ from PySide6.QtGui import QStandardItemModel, QStandardItem
 from config import ENV, UNIT
 from load_settings import load_pi_connections
 from path_config import PI_ADDRESS_FILE
-from status_checker import get_pi_statuses, PiStatus, check_remote_folders, RemoteFolderStatus
+from status_checker import get_pi_statuses, PiStatus, check_other_folders_statuses, RemoteFolderStatus
 
 
 def find_terminal_emulator() -> tuple[str, list[str]]:
@@ -86,7 +86,7 @@ class FolderStatusWorker(QObject):
 		"""Continuously fetch remote folder statuses and emit them."""
 		while not self.stopped:
 			try:
-				folder_statuses = check_remote_folders()
+				folder_statuses = check_other_folders_statuses()
 				self.folder_statuses_updated.emit(folder_statuses)
 			except Exception:
 				pass
