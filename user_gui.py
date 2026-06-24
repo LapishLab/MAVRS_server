@@ -65,6 +65,12 @@ class PiStatusWorker(QObject):
 	@Slot()
 	def run(self) -> None:
 		"""Continuously fetch real Pi statuses and emit them."""
+		# Initially set statuses to unknown (so something displays while waiting for update)
+		pi_group = load_pi_connections()
+		statuses = {str(c.host): PiStatus.UNKNOWN for c in pi_group}
+		self.statuses_updated.emit(statuses)
+
+		# Start update loop
 		while not self.stopped:
 			try:
 				statuses = get_pi_statuses()

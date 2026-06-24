@@ -12,6 +12,7 @@ class PiStatus(Enum):
     UNREACHABLE = "unreachable"
     REACHABLE = "reachable"
     RUNNING = "running"
+    UNKNOWN = "unknown"
 
 class RemoteFolderStatus(Enum):
     UNREACHABLE = "unreachable"
