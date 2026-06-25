@@ -200,15 +200,37 @@ class PiEditorDialog(QtWidgets.QDialog):
 	def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
 		super().__init__(parent)
 		self.setWindowTitle("Edit Pi Addresses")
-		self.resize(560, 420)
+		self.resize(1400, 700)
 		layout = QtWidgets.QVBoxLayout(self)
 
 		self.scroll_area = QtWidgets.QScrollArea()
 		self.scroll_area.setWidgetResizable(True)
 		self.container = QtWidgets.QWidget()
 		self.grid = QtWidgets.QGridLayout(self.container)
+		# self.grid.setContentsMargins(8, 8, 8, 8)
+		# self.grid.setHorizontalSpacing(10)
+		# self.grid.setVerticalSpacing(6)
+		self.grid.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
+		self.grid.setColumnStretch(1, 1)
+		self.grid.setColumnStretch(2, 1)
 		self.scroll_area.setWidget(self.container)
 		layout.addWidget(self.scroll_area)
+
+		# header row for address editor
+		# head_label = QtWidgets.QLabel("")
+		address_label = QtWidgets.QLabel("Pi Address")
+		comment_label = QtWidgets.QLabel("Comment")
+		# head_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignHCenter | QtCore.Qt.AlignmentFlag.AlignTop)
+		# address_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignHCenter | QtCore.Qt.AlignmentFlag.AlignTop)
+		# comment_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignHCenter | QtCore.Qt.AlignmentFlag.AlignTop)
+		font = address_label.font()
+		font.setBold(True)
+		# head_label.setFont(font)
+		address_label.setFont(font)
+		comment_label.setFont(font)
+		# self.grid.addWidget(head_label, 0, 0)
+		self.grid.addWidget(address_label, 0, 1)
+		self.grid.addWidget(comment_label, 0, 2)
 
 		# buttons
 		btn_layout = QtWidgets.QHBoxLayout()
@@ -247,11 +269,14 @@ class PiEditorDialog(QtWidgets.QDialog):
 		return checked, main.strip(), comment.strip()
 
 	def add_row(self, checked: bool = True, main: str = "", comment: str = "") -> None:
-		row = len(self.rows)
+		row = len(self.rows) + 1
 		chk = QtWidgets.QCheckBox()
 		chk.setChecked(checked)
+		# chk.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
 		edt_main = QtWidgets.QLineEdit(main)
+		# edt_main.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
 		edt_cmt = QtWidgets.QLineEdit(comment)
+		# edt_cmt.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
 		self.grid.addWidget(chk, row, 0)
 		self.grid.addWidget(edt_main, row, 1)
 		self.grid.addWidget(edt_cmt, row, 2)
@@ -280,8 +305,8 @@ class PiEditorDialog(QtWidgets.QDialog):
 class MainWindow(QtWidgets.QMainWindow):
 	def __init__(self) -> None:
 		super().__init__()
-		self.setWindowTitle("MAVRS - PySide6 Port (Scaffold)")
-		self.resize(1100, 720)
+		self.setWindowTitle("MAVRS server GUI")
+		self.resize(1500, 720)
 
 		central = QtWidgets.QWidget()
 		self.setCentralWidget(central)
@@ -306,12 +331,24 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.tree.setRootIsDecorated(False)
 		layout.addWidget(self.tree)
 
+		# set equal initial column widths for the main tree and allow interactive resizing
+		head = self.tree.header()
+		head.setSectionResizeMode(QtWidgets.QHeaderView.Interactive)
+		initial_width = int(self.width() / 2)
+		self.tree.setColumnWidth(0, initial_width)
+		self.tree.setColumnWidth(1, initial_width)
+
 		# other tree (remote folders)
 		self.other_tree = QtWidgets.QTreeView()
 		self.other_model = QStandardItemModel(0, 2)
 		self.other_model.setHeaderData(0, QtCore.Qt.Orientation.Horizontal, "Remote Folder")
 		self.other_model.setHeaderData(1, QtCore.Qt.Orientation.Horizontal, "Status")
 		self.other_tree.setModel(self.other_model)
+		# match behavior for the other tree as well
+		other_head = self.other_tree.header()
+		other_head.setSectionResizeMode(QtWidgets.QHeaderView.Interactive)
+		self.other_tree.setColumnWidth(0, initial_width)
+		self.other_tree.setColumnWidth(1, initial_width)
 		layout.addWidget(self.other_tree)
 
 		self.connections = load_pi_connections()
@@ -426,6 +463,20 @@ class MainWindow(QtWidgets.QMainWindow):
 
 def main() -> None:
 	app = QtWidgets.QApplication(sys.argv)
+
+	# Increase the default application font size for better readability.
+	# If the point size is not available, fall back to a sensible default.
+	font = app.font()
+	ps = font.pointSize()
+	if ps is None or ps <= 0:
+		ps = font.pixelSize()
+		if ps is None or ps <= 0:
+			ps = 10
+		font.setPointSize(int(ps * 2))
+	else:
+		font.setPointSize(max(8, int(ps * 2)))
+	app.setFont(font)
+
 	win = MainWindow()
 	win.show()
 	sys.exit(app.exec())
