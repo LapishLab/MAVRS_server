@@ -385,8 +385,9 @@ class MainWindow(QtWidgets.QMainWindow):
 			# color by status (compare against PiStatus enum)
 			if status == PiStatus.RUNNING:
 				status_item.setForeground(QtGui.QBrush(QtGui.QColor("green")))
+				status_item.setForeground(QtGui.QBrush(QtGui.QColor("turquoise")))
 			elif status == PiStatus.REACHABLE:
-				status_item.setForeground(QtGui.QBrush(QtGui.QColor("orange")))
+				status_item.setForeground(QtGui.QBrush(QtGui.QColor("green")))
 			else:
 				status_item.setForeground(QtGui.QBrush(QtGui.QColor("red")))
 			self.model.appendRow([host_item, status_item])
