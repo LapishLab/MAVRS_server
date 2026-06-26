@@ -3,29 +3,29 @@ from load_settings import load_settings
 from subprocess import run
 
 def backup_data() -> None:
-    print("backing up data")
-    settings = load_settings()
-    local_path = settings.local_data_path
-    backup_path = settings.backup_data_path
+	print("backing up data")
+	settings = load_settings()
+	local_path = settings.local_data_path
+	backup_path = settings.backup_data_path
 
-    if not backup_path:
-        raise RuntimeError("Missing required setting: 'backup_data_path'")
+	if not backup_path:
+		raise RuntimeError("Missing required setting: 'backup_data_path'")
 
-    cmd = ["rsync", "-ah","--info=progress2", local_path, backup_path]
-    p = run(cmd)
+	cmd = ["rsync", "-ah","--info=progress2", local_path, backup_path]
+	p = run(cmd)
 
-    if p.returncode != 0:
-        print(
-            f"\n----WARNING!!----"
-            f"\nRsyncing to Datastar failed!"
-            f"\n-----------------"
-            )
-    else:
-        print(
-            f"\n---Transfer Complete---"
-            f"\nData has been backed up to Datastar"
-            f"\n-----------------------"
-        )
+	if p.returncode != 0:
+		print(
+			f"\n----WARNING!!----"
+			f"\nRsyncing to Datastar failed!"
+			f"\n-----------------"
+			)
+	else:
+		print(
+			f"\n---Transfer Complete---"
+			f"\nData has been backed up to Datastar"
+			f"\n-----------------------"
+		)
 
 if __name__ == "__main__":
-    backup_data()
+	backup_data()
