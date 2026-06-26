@@ -21,12 +21,19 @@ from fabric import Connection
 from PySide6 import QtCore, QtWidgets, QtGui
 from PySide6.QtCore import QObject, Signal, Slot, QThread
 from PySide6.QtGui import QStandardItemModel, QStandardItem
+from PySide6.QtWidgets import QApplication
 
 from config import ENV, UNIT
 from load_settings import load_pi_connections
 from path_config import PI_ADDRESS_FILE
 from status_checker import get_pi_statuses, PiStatus, check_other_folders_statuses, RemoteFolderStatus
 
+def relative_window_size(rel_width: float, rel_height: float) -> tuple[int, int]:
+	screen = QApplication.primaryScreen()
+	screen_geometry = screen.availableGeometry()
+	width = int(screen_geometry.width() * rel_width)
+	height = int(screen_geometry.height() * rel_height)
+	return width, height
 
 def find_terminal_emulator() -> tuple[str, list[str]]:
 	candidates = [
@@ -170,7 +177,7 @@ class LogStreamWindow(QtWidgets.QWidget):
 		self.host = host
 		self.connection = connection
 		self.setWindowTitle(f"Output Stream - {host}")
-		self.resize(800, 600)
+		self.resize(*relative_window_size(0.5, 0.6))
 		layout = QtWidgets.QVBoxLayout(self)
 		self.text = QtWidgets.QTextEdit()
 		self.text.setReadOnly(True)
@@ -200,7 +207,7 @@ class PiEditorDialog(QtWidgets.QDialog):
 	def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
 		super().__init__(parent)
 		self.setWindowTitle("Edit Pi Addresses")
-		self.resize(1400, 700)
+		self.resize(*relative_window_size(0.5, 0.6))
 		layout = QtWidgets.QVBoxLayout(self)
 
 		self.scroll_area = QtWidgets.QScrollArea()
@@ -305,7 +312,7 @@ class MainWindow(QtWidgets.QMainWindow):
 	def __init__(self) -> None:
 		super().__init__()
 		self.setWindowTitle("MAVRS server GUI")
-		self.resize(1500, 720)
+		self.resize(*relative_window_size(0.5, 0.6))
 
 		central = QtWidgets.QWidget()
 		self.setCentralWidget(central)
@@ -460,20 +467,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
 def main() -> None:
 	app = QtWidgets.QApplication(sys.argv)
-
-	# Increase the default application font size for better readability.
-	# If the point size is not available, fall back to a sensible default.
-	font = app.font()
-	ps = font.pointSize()
-	if ps is None or ps <= 0:
-		ps = font.pixelSize()
-		if ps is None or ps <= 0:
-			ps = 10
-		font.setPointSize(int(ps * 2))
-	else:
-		font.setPointSize(max(8, int(ps * 2)))
-	app.setFont(font)
-
 	win = MainWindow()
 	win.show()
 	sys.exit(app.exec())
