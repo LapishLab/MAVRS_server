@@ -65,6 +65,23 @@ def launch_script_in_terminal(script_path: Path) -> None:
 	subprocess.Popen(terminal_args, cwd=script_path.parent)
 
 
+def stop_thread(thread: QThread | None, worker: QObject | None = None, timeout_ms: int = 5000) -> None:
+	if thread is None or not thread.isRunning():
+		return
+	if worker is not None:
+		try:
+			worker.stop()
+		except Exception:
+			pass
+	thread.quit()
+	if not thread.wait(timeout_ms):
+		try:
+			thread.terminate()
+		except Exception:
+			pass
+		thread.wait(max(1000, timeout_ms // 2))
+
+
 class PiStatusWorker(QObject):
 	statuses_updated = Signal(dict)
 	stopped = False
@@ -196,11 +213,14 @@ class LogStreamWindow(QtWidgets.QWidget):
 		self.text.ensureCursorVisible()
 
 	def closeEvent(self, event: QtGui.QCloseEvent) -> None:
+		self.hide()
+		event.accept()
+		QtCore.QTimer.singleShot(0, self._shutdown)
+
+	def _shutdown(self) -> None:
 		self.worker.stop()
-		self.worker_thread.quit()
-		self.worker_thread.wait(2000)
+		stop_thread(self.worker_thread, self.worker, 5000)
 		self.closed.emit(self.host)
-		super().closeEvent(event)
 
 
 class PiEditorDialog(QtWidgets.QDialog):
@@ -367,7 +387,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
 		# start pi status worker (separate thread)
 		self.pi_worker = PiStatusWorker()
-		self.pi_thread = QThread()
+		self.pi_thread = QThread(self)
 		self.pi_worker.moveToThread(self.pi_thread)
 		self.pi_thread.started.connect(self.pi_worker.run)
 		self.pi_worker.statuses_updated.connect(self.update_statuses)
@@ -375,7 +395,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
 		# start folder status worker (separate thread)
 		self.folder_worker = FolderStatusWorker()
-		self.folder_thread = QThread()
+		self.folder_thread = QThread(self)
 		self.folder_worker.moveToThread(self.folder_thread)
 		self.folder_thread.started.connect(self.folder_worker.run)
 		self.folder_worker.folder_statuses_updated.connect(self.update_folder_statuses)
@@ -450,19 +470,16 @@ class MainWindow(QtWidgets.QMainWindow):
 		dlg.exec()
 
 	def closeEvent(self, event: QtGui.QCloseEvent) -> None:
-		# stop status worker threads cleanly
-		self.pi_worker.stop()
-		self.pi_thread.quit()
-		self.pi_thread.wait(2000)
+		self.hide()
+		event.accept()
+		QtCore.QTimer.singleShot(0, self._shutdown_workers)
 
-		self.folder_worker.stop()
-		self.folder_thread.quit()
-		self.folder_thread.wait(2000)
-
-		# close any open log streaming windows cleanly
+	def _shutdown_workers(self) -> None:
 		for win in list(self.log_windows.values()):
 			win.close()
-		super().closeEvent(event)
+		stop_thread(self.pi_thread, self.pi_worker)
+		stop_thread(self.folder_thread, self.folder_worker)
+		QtWidgets.QApplication.instance().quit()
 
 
 def main() -> None:
