@@ -22,11 +22,15 @@ class RemoteFolderStatus(Enum):
 
 
 def get_pi_statuses(pi_group: Optional[List[Connection]] = None) -> Dict[str, PiStatus]:
+    auto_close = False
     if pi_group is None:
         pi_group = load_pi_connections()
+        auto_close = True #If we automatically open, then we should also close
     results = run_on_connections(pi_group, f"{ENV} systemctl --user is-active {UNIT}.service", warn=True, hide=True, timeout=2)
     statuses = [result_2_status(r) for r in results]
     names = [str(c.host) for c in pi_group]
+    if auto_close:
+        [c.close() for c in pi_group] # close to avoid memory leak
     return dict(zip(names, statuses)) 
 
 def result_2_status(result):  
