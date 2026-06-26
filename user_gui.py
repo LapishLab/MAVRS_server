@@ -384,7 +384,6 @@ class MainWindow(QtWidgets.QMainWindow):
 			status_item = QStandardItem(status.value)
 			# color by status (compare against PiStatus enum)
 			if status == PiStatus.RUNNING:
-				status_item.setForeground(QtGui.QBrush(QtGui.QColor("green")))
 				status_item.setForeground(QtGui.QBrush(QtGui.QColor("turquoise")))
 			elif status == PiStatus.REACHABLE:
 				status_item.setForeground(QtGui.QBrush(QtGui.QColor("green")))
