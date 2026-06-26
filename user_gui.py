@@ -333,7 +333,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
 		# set equal initial column widths for the main tree and allow interactive resizing
 		head = self.tree.header()
-		head.setSectionResizeMode(QtWidgets.QHeaderView.Interactive)
+		head.setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Interactive)
 		initial_width = int(self.width() / 2)
 		self.tree.setColumnWidth(0, initial_width)
 		self.tree.setColumnWidth(1, initial_width)
@@ -346,7 +346,7 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.other_tree.setModel(self.other_model)
 		# match behavior for the other tree as well
 		other_head = self.other_tree.header()
-		other_head.setSectionResizeMode(QtWidgets.QHeaderView.Interactive)
+		other_head.setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Interactive)
 		self.other_tree.setColumnWidth(0, initial_width)
 		self.other_tree.setColumnWidth(1, initial_width)
 		layout.addWidget(self.other_tree)
