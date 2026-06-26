@@ -299,7 +299,6 @@ class PiEditorDialog(QtWidgets.QDialog):
 					line = f"# {line}"
 			out_lines.append(line)
 		Path(PI_ADDRESS_FILE).write_text("\n".join(out_lines) + "\n")
-		QtWidgets.QMessageBox.information(self, "Saved", "Saved successfully")
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -429,7 +428,6 @@ class MainWindow(QtWidgets.QMainWindow):
 		script_path = Path(__file__).resolve().parent / "start_experiment.py"
 		try:
 			launch_script_in_terminal(script_path)
-			QtWidgets.QMessageBox.information(self, "Start Experiment", "Started experiment runner in a new terminal window.")
 		except Exception as exc:
 			QtWidgets.QMessageBox.critical(self, "Error", f"Failed to start experiment: {exc}")
 
@@ -437,7 +435,6 @@ class MainWindow(QtWidgets.QMainWindow):
 		script_path = Path(__file__).resolve().parent / "stop_experiment.py"
 		try:
 			launch_script_in_terminal(script_path)
-			QtWidgets.QMessageBox.information(self, "Stop Experiment", "Started stop experiment runner in a new terminal window.")
 		except Exception as exc:
 			QtWidgets.QMessageBox.critical(self, "Error", f"Failed to stop experiment: {exc}")
 
