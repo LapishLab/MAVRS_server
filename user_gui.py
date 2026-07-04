@@ -333,9 +333,11 @@ class MainWindow(QtWidgets.QMainWindow):
 		btn_layout = QtWidgets.QHBoxLayout()
 		self.btn_start = QtWidgets.QPushButton("Start Experiment")
 		self.btn_stop = QtWidgets.QPushButton("Stop Experiment")
+		self.btn_backup = QtWidgets.QPushButton("Backup Data")
 		self.btn_edit = QtWidgets.QPushButton("Edit Pi Addresses")
 		btn_layout.addWidget(self.btn_start)
 		btn_layout.addWidget(self.btn_stop)
+		btn_layout.addWidget(self.btn_backup)
 		btn_layout.addWidget(self.btn_edit)
 		layout.addLayout(btn_layout)
 
@@ -373,6 +375,7 @@ class MainWindow(QtWidgets.QMainWindow):
 		# connections
 		self.btn_start.clicked.connect(self.start_experiment)
 		self.btn_stop.clicked.connect(self.stop_experiment)
+		self.btn_backup.clicked.connect(self.backup_data)
 		self.btn_edit.clicked.connect(self.open_editor)
 		self.tree.doubleClicked.connect(self.open_log_stream)
 
@@ -455,6 +458,13 @@ class MainWindow(QtWidgets.QMainWindow):
 			launch_script_in_terminal(script_path)
 		except Exception as exc:
 			QtWidgets.QMessageBox.critical(self, "Error", f"Failed to stop experiment: {exc}")
+
+	def backup_data(self) -> None:
+		script_path = Path(__file__).resolve().parent / "backup_data.py"
+		try:
+			launch_script_in_terminal(script_path)
+		except Exception as exc:
+			QtWidgets.QMessageBox.critical(self, "Error", f"Failed to start backup: {exc}")
 
 	def open_editor(self) -> None:
 		dlg = PiEditorDialog(self)
