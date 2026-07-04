@@ -31,7 +31,7 @@ def start_process(c: List[Connection], session: str):
 	if all(PiStatus.RUNNING == v for v in statuses.values()):
 		print(f"Started {UNIT} on all Pis")
 	else:
-		for name, status in statuses.values():
+		for name, status in statuses.items():
 			if status==PiStatus.UNREACHABLE:
 				logger.warning(f"{name} is now unreachable")
 			elif status == PiStatus.REACHABLE:

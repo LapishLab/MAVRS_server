@@ -70,7 +70,10 @@ def stop_thread(thread: QThread | None, worker: QObject | None = None, timeout_m
 		return
 	if worker is not None:
 		try:
-			worker.stop()
+			# Call stop() if the worker implements it (worker typed as QObject so static
+			# check may not know about stop). Use getattr to avoid attribute errors.
+			if hasattr(worker, "stop"):
+				getattr(worker, "stop")()
 		except Exception:
 			pass
 	thread.quit()
@@ -467,7 +470,9 @@ class MainWindow(QtWidgets.QMainWindow):
 			win.close()
 		stop_thread(self.pi_thread, self.pi_worker)
 		stop_thread(self.folder_thread, self.folder_worker)
-		QtWidgets.QApplication.instance().quit()
+		app = QtWidgets.QApplication.instance()
+		if app is not None:
+			app.quit()
 
 
 def main() -> None:
