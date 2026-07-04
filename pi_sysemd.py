@@ -24,7 +24,7 @@ def start_process(c: List[Connection], session: str):
 			logger.warning(f"Aborting: {UNIT} is already running on {name}.")
 			return
 	pi_cmd = f'{PYTHON_PATH} -u {SCRIPT_PATH} --session {session}'
-	sysemd_cmd = f'{ENV} systemctl --user reset-failed; systemd-run --user --unit={UNIT} {pi_cmd}'
+	sysemd_cmd = f'{ENV} systemctl --user reset-failed; systemd-run --user --setenv=PYTHONUNBUFFERED=1 --unit={UNIT} {pi_cmd}'
 	run_on_connections(c, sysemd_cmd, warn=True)
 		
 	statuses = get_pi_statuses(c)
