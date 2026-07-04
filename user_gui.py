@@ -25,7 +25,7 @@ from PySide6.QtWidgets import QApplication
 
 from config import ENV, UNIT
 from load_settings import load_pi_connections
-from path_config import PI_ADDRESS_FILE
+from path_config import PI_ADDRESS_FILE, EXPERIMENT_NAMES_FILE
 from status_checker import get_pi_statuses, PiStatus, check_other_folders_statuses, RemoteFolderStatus
 
 def relative_window_size(rel_width: float, rel_height: float) -> tuple[int, int]:
@@ -319,6 +319,97 @@ class PiEditorDialog(QtWidgets.QDialog):
 		Path(PI_ADDRESS_FILE).write_text("\n".join(out_lines) + "\n")
 
 
+class ExperimentNameEditorDialog(QtWidgets.QDialog):
+	def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
+		super().__init__(parent)
+		self.setWindowTitle("Edit Experiment Names")
+		self.resize(*relative_window_size(0.5, 0.6))
+		layout = QtWidgets.QVBoxLayout(self)
+
+		self.scroll_area = QtWidgets.QScrollArea()
+		self.scroll_area.setWidgetResizable(True)
+		self.container = QtWidgets.QWidget()
+		self.grid = QtWidgets.QGridLayout(self.container)
+		self.grid.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
+		self.grid.setColumnStretch(1, 1)
+		self.grid.setColumnStretch(2, 1)
+		self.scroll_area.setWidget(self.container)
+		layout.addWidget(self.scroll_area)
+
+		name_label = QtWidgets.QLabel("Experiment Name")
+		comment_label = QtWidgets.QLabel("Comment")
+		font = name_label.font()
+		font.setBold(True)
+		name_label.setFont(font)
+		comment_label.setFont(font)
+		self.grid.addWidget(name_label, 0, 1)
+		self.grid.addWidget(comment_label, 0, 2)
+
+		btn_layout = QtWidgets.QHBoxLayout()
+		self.btn_add = QtWidgets.QPushButton("Add Row")
+		self.btn_save = QtWidgets.QPushButton("Save")
+		self.btn_close = QtWidgets.QPushButton("Close")
+		btn_layout.addWidget(self.btn_add)
+		btn_layout.addWidget(self.btn_save)
+		btn_layout.addWidget(self.btn_close)
+		layout.addLayout(btn_layout)
+
+		self.rows: list[tuple[QtWidgets.QCheckBox, QtWidgets.QLineEdit, QtWidgets.QLineEdit]] = []
+		self.btn_add.clicked.connect(self.add_row)
+		self.btn_save.clicked.connect(self.save)
+		self.btn_close.clicked.connect(self.close)
+
+		self.load_file()
+
+	def load_file(self) -> None:
+		p = Path(EXPERIMENT_NAMES_FILE)
+		lines: list[str] = []
+		if p.exists():
+			lines = p.read_text().splitlines()
+		for line in lines:
+			checked, main, comment = self.parse_line(line)
+			self.add_row(checked, main, comment)
+
+	def parse_line(self, line: str) -> tuple[bool, str, str]:
+		raw = line.strip()
+		if raw.startswith("#"):
+			checked = False
+			raw = raw.lstrip("#").strip()
+		else:
+			checked = True
+		main, _sep, comment = raw.partition('#')
+		return checked, main.strip(), comment.strip()
+
+	def add_row(self, checked: bool = True, main: str = "", comment: str = "") -> None:
+		row = len(self.rows) + 1
+		chk = QtWidgets.QCheckBox()
+		chk.setChecked(checked)
+		edt_main = QtWidgets.QLineEdit(main)
+		edt_cmt = QtWidgets.QLineEdit(comment)
+		self.grid.addWidget(chk, row, 0)
+		self.grid.addWidget(edt_main, row, 1)
+		self.grid.addWidget(edt_cmt, row, 2)
+		self.rows.append((chk, edt_main, edt_cmt))
+
+	def save(self) -> None:
+		out_lines: list[str] = []
+		for chk, edt_main, edt_cmt in self.rows:
+			main = edt_main.text().rstrip()
+			c = edt_cmt.text().strip()
+			if not main and not c:
+				out_lines.append("")
+				continue
+			if c:
+				line = f"{main} # {c}" if main else f"# {c}"
+			else:
+				line = main
+			if not chk.isChecked():
+				if not line.startswith("#"):
+					line = f"# {line}"
+			out_lines.append(line)
+		Path(EXPERIMENT_NAMES_FILE).write_text("\n".join(out_lines) + "\n")
+
+
 class MainWindow(QtWidgets.QMainWindow):
 	def __init__(self) -> None:
 		super().__init__()
@@ -335,10 +426,12 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.btn_stop = QtWidgets.QPushButton("Stop Experiment")
 		self.btn_backup = QtWidgets.QPushButton("Backup Data")
 		self.btn_edit = QtWidgets.QPushButton("Edit Pi Addresses")
+		self.btn_edit_experiments = QtWidgets.QPushButton("Edit Experiment Names")
 		btn_layout.addWidget(self.btn_start)
 		btn_layout.addWidget(self.btn_stop)
 		btn_layout.addWidget(self.btn_backup)
 		btn_layout.addWidget(self.btn_edit)
+		btn_layout.addWidget(self.btn_edit_experiments)
 		layout.addLayout(btn_layout)
 
 		# tree view for pi statuses
@@ -377,6 +470,7 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.btn_stop.clicked.connect(self.stop_experiment)
 		self.btn_backup.clicked.connect(self.backup_data)
 		self.btn_edit.clicked.connect(self.open_editor)
+		self.btn_edit_experiments.clicked.connect(self.open_experiment_name_editor)
 		self.tree.doubleClicked.connect(self.open_log_stream)
 
 		# start pi status worker (separate thread)
@@ -468,6 +562,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
 	def open_editor(self) -> None:
 		dlg = PiEditorDialog(self)
+		dlg.exec()
+
+	def open_experiment_name_editor(self) -> None:
+		dlg = ExperimentNameEditorDialog(self)
 		dlg.exec()
 
 	def closeEvent(self, event: QtGui.QCloseEvent) -> None:
