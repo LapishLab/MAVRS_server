@@ -35,6 +35,28 @@ def relative_window_size(rel_width: float, rel_height: float) -> tuple[int, int]
 	height = int(screen_geometry.height() * rel_height)
 	return width, height
 
+
+def apply_dark_theme(app: QtWidgets.QApplication) -> None:
+	"""Apply a simple dark Fusion theme to the QApplication."""
+	app.setStyle("Fusion")
+	palette = QtGui.QPalette()
+	palette.setColor(QtGui.QPalette.ColorRole.Window, QtGui.QColor(53, 53, 53))
+	palette.setColor(QtGui.QPalette.ColorRole.WindowText, QtGui.QColor(220, 220, 220))
+	palette.setColor(QtGui.QPalette.ColorRole.Base, QtGui.QColor(35, 35, 35))
+	palette.setColor(QtGui.QPalette.ColorRole.AlternateBase, QtGui.QColor(53, 53, 53))
+	palette.setColor(QtGui.QPalette.ColorRole.ToolTipBase, QtGui.QColor(255, 255, 220))
+	palette.setColor(QtGui.QPalette.ColorRole.ToolTipText, QtGui.QColor(0, 0, 0))
+	palette.setColor(QtGui.QPalette.ColorRole.Text, QtGui.QColor(220, 220, 220))
+	palette.setColor(QtGui.QPalette.ColorRole.Button, QtGui.QColor(53, 53, 53))
+	palette.setColor(QtGui.QPalette.ColorRole.ButtonText, QtGui.QColor(220, 220, 220))
+	palette.setColor(QtGui.QPalette.ColorRole.BrightText, QtGui.QColor(255, 0, 0))
+	palette.setColor(QtGui.QPalette.ColorRole.Link, QtGui.QColor(42, 130, 218))
+	palette.setColor(QtGui.QPalette.ColorRole.Highlight, QtGui.QColor(42, 130, 218))
+	palette.setColor(QtGui.QPalette.ColorRole.HighlightedText, QtGui.QColor(0, 0, 0))
+	app.setPalette(palette)
+	# Slight stylesheet to improve contrast for disabled controls
+	app.setStyleSheet("QToolTip { color: #000000; background-color: #ffffdc; border: 1px solid black; }")
+
 def find_terminal_emulator() -> tuple[str, list[str]]:
 	candidates = [
 		("x-terminal-emulator", ["-e"]),
@@ -585,6 +607,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
 def main() -> None:
 	app = QtWidgets.QApplication(sys.argv)
+	apply_dark_theme(app)
 	win = MainWindow()
 	win.show()
 	sys.exit(app.exec())
