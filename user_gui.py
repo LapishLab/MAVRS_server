@@ -184,7 +184,7 @@ class LogStreamWorker(QObject):
 	def run(self) -> None:
 		try:
 			self._promise = self.connection.run(
-				f"{ENV} journalctl --user -u {UNIT}.service -f --no-pager",
+				f"{ENV} journalctl --user-unit={UNIT}.service -f --no-pager",
 				warn=True,
 				hide=True,
 				asynchronous=True,
