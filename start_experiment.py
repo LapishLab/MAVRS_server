@@ -16,7 +16,13 @@ def main() -> None:
 	if not initialize(pis, settings, session):
 		return
 	input("Hit enter when ready to start Pi recording")
-	start_pi_recordings(pis, session)
+	
+	print(f"Starting Pi recordings: {session}")
+	if settings.other_folders:
+		pi_session =  f"{session}/pi-data_{session}"
+	else:
+		pi_session = session # If no other computers or folders, just save pi data in the root of the session
+	start_process(pis, pi_session)
 
 def initialize(pis: List[Connection], settings: Settings, session: str) -> bool:
 	set_time_on_pis(pis)
@@ -78,11 +84,6 @@ def get_session_name(settings: Settings) -> str:
 		response = input('If the above name is correct, hit enter. If incorrect, type "n" to restart selection: ')
 		if not response == "n":
 			return suggested
-
-def start_pi_recordings(pis: List[Connection], session: str) -> None:
-	print(f"Starting Pi recordings: {session}")
-	pi_session =  f"{session}/pi-data_{session}"
-	start_process(pis, pi_session)
 
 def choose_experiment_from_file() -> str:
 	lines = load_experiment_names()
