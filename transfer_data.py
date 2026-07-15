@@ -5,6 +5,7 @@ from load_settings import load_settings, load_pi_addresses, Settings, other_fold
 from pi_utilities import send_individual_pi_command
 from pathlib import Path
 from typing import List
+from path_config import PI_SETTINGS_FOLDER
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +14,35 @@ def main() -> None:
 	if settings.other_folders:
 		get_remote_folders(settings)
 	transfer_pis(settings)
+def copy_to_pi_home() -> None:
+	print("Copying settings to the Pi")
+
+	pi_names = load_pi_addresses()
+	local_settings_path = f"{PI_SETTINGS_FOLDER}/"
+	remote_home = "/home/pi"
+
+	for fullname in pi_names:
+		if ":" in fullname:
+			pi, port = fullname.split(":")
+		else:
+			pi = fullname
+			port = "22"
+
+		remote_target = f"{pi}:{remote_home}/"
+		cmd = [
+			"rsync",
+			"-ah",
+			"--info=progress2",
+			"-e",
+			f"ssh -p {port}",
+			local_settings_path,
+			remote_target,
+		]
+		result = run(cmd, capture_output=True, text=True)
+		if result.returncode == 0:
+			print(f"Successfully copied settings to {pi}")
+		else:
+			logger.warning(f"Failed to copy settings to {pi}: {result.stderr}")
 
 def transfer_pis(settings: Settings) -> None:
 	print("Copying data from Pi")
