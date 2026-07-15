@@ -27,6 +27,7 @@ from config import ENV, UNIT
 from load_settings import load_pi_connections
 from path_config import PI_ADDRESS_FILE, EXPERIMENT_NAMES_FILE
 from status_checker import get_pi_statuses, PiStatus, check_other_folders_statuses, RemoteFolderStatus
+from transfer_data import copy_to_pi_home
 
 def relative_window_size(rel_width: float, rel_height: float) -> tuple[int, int]:
 	screen = QApplication.primaryScreen()
@@ -447,11 +448,13 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.btn_start = QtWidgets.QPushButton("Start Experiment")
 		self.btn_stop = QtWidgets.QPushButton("Stop Experiment")
 		self.btn_backup = QtWidgets.QPushButton("Backup Data")
+		self.btn_copy_settings = QtWidgets.QPushButton("Copy Settings to Pi")
 		self.btn_edit = QtWidgets.QPushButton("Edit Pi Addresses")
 		self.btn_edit_experiments = QtWidgets.QPushButton("Edit Experiment Names")
 		btn_layout.addWidget(self.btn_start)
 		btn_layout.addWidget(self.btn_stop)
 		btn_layout.addWidget(self.btn_backup)
+		btn_layout.addWidget(self.btn_copy_settings)
 		btn_layout.addWidget(self.btn_edit)
 		btn_layout.addWidget(self.btn_edit_experiments)
 		layout.addLayout(btn_layout)
@@ -491,6 +494,7 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.btn_start.clicked.connect(self.start_experiment)
 		self.btn_stop.clicked.connect(self.stop_experiment)
 		self.btn_backup.clicked.connect(self.backup_data)
+		self.btn_copy_settings.clicked.connect(self.copy_settings_to_pi)
 		self.btn_edit.clicked.connect(self.open_editor)
 		self.btn_edit_experiments.clicked.connect(self.open_experiment_name_editor)
 		self.tree.doubleClicked.connect(self.open_log_stream)
@@ -581,6 +585,12 @@ class MainWindow(QtWidgets.QMainWindow):
 			launch_script_in_terminal(script_path)
 		except Exception as exc:
 			QtWidgets.QMessageBox.critical(self, "Error", f"Failed to start backup: {exc}")
+
+	def copy_settings_to_pi(self) -> None:
+		try:
+			copy_to_pi_home()
+		except Exception as exc:
+			QtWidgets.QMessageBox.critical(self, "Error", f"Failed to copy settings to Pi: {exc}")
 
 	def open_editor(self) -> None:
 		dlg = PiEditorDialog(self)
