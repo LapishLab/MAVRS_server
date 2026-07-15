@@ -26,7 +26,7 @@ def get_pi_statuses(pi_group: Optional[List[Connection]] = None) -> Dict[str, Pi
 	if pi_group is None:
 		pi_group = load_pi_connections()
 		auto_close = True #If we automatically open, then we should also close
-	results = run_on_connections(pi_group, f"{ENV} systemctl --user is-active {UNIT}.service", warn=True, hide=True, timeout=2)
+	results = run_on_connections(pi_group, f"{ENV} systemctl --user is-active {UNIT}.service", warn=True, hide=True, timeout=3)
 	statuses = [result_2_status(r) for r in results]
 	names = [str(c.host) for c in pi_group]
 	if auto_close:
