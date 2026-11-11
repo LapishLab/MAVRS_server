@@ -11,7 +11,7 @@ def backup_data() -> None:
 	if not backup_path:
 		raise RuntimeError("Missing required setting: 'backup_data_path'")
 
-	cmd = ["rsync", "-ah","--info=progress2", local_path, backup_path]
+	cmd = ["rsync", "-ahu","--info=progress2", local_path, backup_path]
 	p = run(cmd)
 
 	if p.returncode != 0:

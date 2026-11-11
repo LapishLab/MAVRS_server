@@ -63,7 +63,7 @@ def transfer_pis(settings: Settings) -> None:
 		pi_path = f'{pi}:{pi_data_path}'
 		# Use --out-format to print transferred file/dir names to stdout
 		cmd = [
-			'rsync', '-ah', '--info=progress2', '--exclude=.*',
+			'rsync', '-ahu', '--info=progress2', '--exclude=.*',
 			f"--out-format=%n",
 			'-e', f'ssh -p {port}',
 			pi_path, server_path
@@ -109,7 +109,7 @@ def get_remote_folders(settings: Settings) -> None:
 		if remote_path == local_data: #Skip transfer if already saved in local path
 			continue
 		print(f"Getting {label} folder")
-		cmd = ["rsync", "-ah","--info=progress2", remote_path, local_data]
+		cmd = ["rsync", "-ahu","--info=progress2", remote_path, local_data]
 		result = run(cmd, capture_output=True,text=True)
 		if not result.returncode == 0:
 			logger.warning(f'Failed to copy {label} data from {remote_path} \n{result.stderr}')
