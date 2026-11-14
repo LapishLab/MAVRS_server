@@ -2,12 +2,14 @@ from subprocess import run
 from datetime import datetime
 from load_settings import load_pi_connections, load_settings, load_experiment_names, Settings, other_folders_save_root
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from pi_utilities import set_time_on_pis, report_disk_space
 from re import search, sub
 from pi_sysemd import start_process
 from fabric_tools import run_on_connections
 from typing import Optional, List
 from fabric import Connection
+from rsync_paths import rsync_command
 
 def main() -> None:
 	pis = load_pi_connections()
@@ -32,29 +34,20 @@ def initialize(pis: List[Connection], settings: Settings, session: str) -> bool:
 	return True
 
 def create_other_folders(session: str, settings: Settings) -> bool:
-	folders = other_folders_save_root()
+	folders = other_folders_save_root(settings)
 	for label, dest in folders.items():
 		print(f"creating {label} folder")
-		
-		# create folder in temporary location
-		temp = f"{Path.home()}/.temp/"
 		folder_name = f"{session}/{label}_{session}"
-		cmd = ["mkdir", "-p", f"{temp}{folder_name}"]
-		run(cmd, check=True)
-
-		# copy folder to destination
-		cmd = ["rsync", "-ah","--info=progress2", temp, dest]
-		try:
-			run(cmd, check=True)
-		except Exception as e:
-			ans = input(f'Failed to create {label} folder at {dest} \n'
-				  'Continue anyway? (y/N): ')
-			if not (ans.lower()=='y' or ans.lower()=='yes'):
-				return False
-
-		# Delete temporary folder
-		cmd = ["rm", "-rf", temp]
-		run(cmd, check=True)
+		with TemporaryDirectory(prefix="mavrs_") as temp:
+			(Path(temp) / session / f"{label}_{session}").mkdir(parents=True)
+			cmd = rsync_command(f"{temp}/", dest)
+			try:
+				run(cmd, check=True)
+			except Exception:
+				ans = input(f'Failed to create {label} folder at {dest} \n'
+					  'Continue anyway? (y/N): ')
+				if ans.lower() not in ("y", "yes"):
+					return False
 		print(f"Created: {dest}/{folder_name}")
 	return True
 	

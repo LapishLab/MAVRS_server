@@ -8,6 +8,7 @@ import os
 import logging
 from load_settings import load_settings, load_pi_addresses, Settings, other_folders_save_root
 from path_config import PI_SETTINGS_FOLDER
+from rsync_paths import rsync_command
 from transfer_cleanup import cleanup_pi
 
 logger = logging.getLogger(__name__)
@@ -34,15 +35,10 @@ def copy_to_pi_home() -> None:
 			port = "22"
 
 		remote_target = f"{pi}:{remote_home}/"
-		cmd = [
-			"rsync",
-			"-ah",
-			"--info=progress2",
-			"-e",
-			f"ssh -p {port}",
-			local_settings_path,
-			remote_target,
-		]
+		cmd = rsync_command(
+			local_settings_path, remote_target,
+			ssh_port=port,
+		)
 		result = run(cmd, capture_output=True, text=True)
 		if result.returncode == 0:
 			print(f"Successfully copied settings to {pi}")
@@ -52,11 +48,10 @@ def copy_to_pi_home() -> None:
 def transfer_pi(fullname: str, server_path: str) -> tuple[str, str, bool, str]:
 	pi, _, port = fullname.partition(":")
 	port = port or "22"
-	cmd = [
-		"rsync", "-ahu", "--info=progress2", "--exclude=.*",
-		"-e", f"ssh -p {port}",
+	cmd = rsync_command(
 		f"{pi}:/home/pi/MAVRS_pi/data/", server_path,
-	]
+		update=True, exclude=".*", ssh_port=port,
+	)
 	try:
 		proc = Popen(cmd, stdout=PIPE, stderr=STDOUT)
 		assert proc.stdout is not None
@@ -130,7 +125,7 @@ def get_remote_folders(settings: Settings) -> None:
 		if remote_path == local_data: #Skip transfer if already saved in local path
 			continue
 		print(f"Getting {label} folder")
-		cmd = ["rsync", "-ahu","--info=progress2", remote_path, local_data]
+		cmd = rsync_command(remote_path, local_data, update=True)
 		result = run(cmd, capture_output=True,text=True)
 		if not result.returncode == 0:
 			logger.warning(f'Failed to copy {label} data from {remote_path} \n{result.stderr}')

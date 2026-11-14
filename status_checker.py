@@ -7,6 +7,7 @@ from load_settings import load_pi_connections, other_folders_save_root
 from config import ENV, UNIT
 from fabric_tools import run_on_connections
 from fabric import Connection
+from rsync_paths import rsync_command
 
 class PiStatus(Enum):
 	UNREACHABLE = "unreachable"
@@ -53,7 +54,7 @@ def check_other_folders_statuses(folders: Optional[dict[str, str]] = None) -> Di
 		# Use rsync --list-only to check accessibility without transferring data
 		try:
 			result: CompletedProcess = run(
-				["rsync", "--list-only", remote_path],
+				rsync_command(remote_path, list_only=True),
 				capture_output=True,
 				timeout=10,
 				check=False

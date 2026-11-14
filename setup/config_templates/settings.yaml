@@ -1,4 +1,5 @@
 ---
+    # Linux/WSL: /mnt/c/data/ ; native Windows with cwRsync: C:/data/
     local_data_path: "/mnt/c/data/"
     backup_data_path: "lapishla@datastar.psych.indianapolis.iu.edu:/research/behavior_rooms/ephys/B/"
     other_folders:

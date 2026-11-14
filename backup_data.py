@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from load_settings import load_settings
 from subprocess import run
+from rsync_paths import rsync_command
 
 def backup_data() -> None:
 	print("backing up data")
@@ -11,7 +12,7 @@ def backup_data() -> None:
 	if not backup_path:
 		raise RuntimeError("Missing required setting: 'backup_data_path'")
 
-	cmd = ["rsync", "-ahu","--info=progress2", local_path, backup_path]
+	cmd = rsync_command(local_path, backup_path, update=True)
 	p = run(cmd)
 
 	if p.returncode != 0:
