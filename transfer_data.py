@@ -1,19 +1,24 @@
 #!/usr/bin/env python3
-from subprocess import run, Popen, PIPE
+from subprocess import run, Popen, PIPE, STDOUT
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from collections import deque
+from threading import Lock
+import codecs
+import os
 import logging
 from load_settings import load_settings, load_pi_addresses, Settings, other_folders_save_root
-from pi_utilities import send_individual_pi_command
-from pathlib import Path
-from typing import List
 from path_config import PI_SETTINGS_FOLDER
+from transfer_cleanup import cleanup_pi
 
 logger = logging.getLogger(__name__)
+progress_lock = Lock()
 
 def main() -> None:
 	settings = load_settings()
 	if settings.other_folders:
 		get_remote_folders(settings)
 	transfer_pis(settings)
+	
 def copy_to_pi_home() -> None:
 	print("Copying settings to the Pi")
 
@@ -44,61 +49,77 @@ def copy_to_pi_home() -> None:
 		else:
 			logger.warning(f"Failed to copy settings to {pi}: {result.stderr}")
 
+def transfer_pi(fullname: str, server_path: str) -> tuple[str, str, bool, str]:
+	pi, _, port = fullname.partition(":")
+	port = port or "22"
+	cmd = [
+		"rsync", "-ahu", "--info=progress2", "--exclude=.*",
+		"-e", f"ssh -p {port}",
+		f"{pi}:/home/pi/MAVRS_pi/data/", server_path,
+	]
+	try:
+		proc = Popen(cmd, stdout=PIPE, stderr=STDOUT)
+		assert proc.stdout is not None
+		decoder = codecs.getincrementaldecoder("utf-8")("replace")
+		pending = ""
+		recent = deque(maxlen=20)
+		while chunk := os.read(proc.stdout.fileno(), 4096):
+			pending += decoder.decode(chunk)
+			parts = pending.replace("\r", "\n").split("\n")
+			pending = parts.pop()
+			for line in parts:
+				if line.strip():
+					recent.append(line)
+					with progress_lock:
+						print(f"[{fullname}] {line}", flush=True)
+		pending += decoder.decode(b"", final=True)
+		if pending.strip():
+			recent.append(pending)
+			with progress_lock:
+				print(f"[{fullname}] {pending}", flush=True)
+		return pi, port, proc.wait() == 0, "\n".join(recent)
+	except OSError as exc:
+		return pi, port, False, str(exc)
+
+
 def transfer_pis(settings: Settings) -> None:
 	print("Copying data from Pi")
 
 	pi_names = load_pi_addresses()
 	server_path = settings.local_data_path
 
-	pi_data_path = f'/home/pi/MAVRS_pi/data/'
-	
-	processes: List[tuple[str, Popen]] = []
+	if not pi_names:
+		print("No Pis configured for transfer")
+		return
+	with ThreadPoolExecutor(max_workers=len(pi_names)) as executor:
+		futures = {executor.submit(transfer_pi, name, server_path): name for name in pi_names}
+		results = {futures[future]: future.result() for future in as_completed(futures)}
+
+	failed_transfers = []
 	for fullname in pi_names:
-		if ":" in fullname:
-			pi, port = fullname.split(":")
-		else:
-			pi = fullname
-			port = "22"
-
-		pi_path = f'{pi}:{pi_data_path}'
-		# Use --out-format to print transferred file/dir names to stdout
-		cmd = [
-			'rsync', '-ahu', '--info=progress2', '--exclude=.*',
-			f"--out-format=%n",
-			'-e', f'ssh -p {port}',
-			pi_path, server_path
-		]
-		proc = Popen(cmd, stdout=PIPE, stderr=PIPE, text=True)
-		processes.append((fullname, proc))
-
-	failed_transfers: List[str] = []
-	for pi_name, proc in processes:
-		stdout, stderr = proc.communicate()
-		if proc.returncode == 0:
-			print(f'\nSuccessfully transfered data from {pi_name}: Automatically deleting data')
-			try:
-				scanned_folders = parse_rsync_stdout(stdout)
-				scanned_folders = [f'{pi_data_path}{f}' for f in scanned_folders]
-				if scanned_folders:
-					pi_cmd = 'rm -rf ' + ' '.join(scanned_folders)
-					send_individual_pi_command(pi_cmd, pi_name)
-			except Exception as e:
-				logger.warning(f"\nError automatically deleting data from {pi_name}: {e} \nYou will need to manually delete data from this Pi if this issue is not resolved")
-		else:
-			logger.warning(f"Rsync failed for {pi_name}: {stderr}")
-			failed_transfers.append(pi_name)
-	if (len(failed_transfers)==0):
+		pi, port, success, output = results[fullname]
+		if not success:
+			logger.warning("Rsync failed for %s: %s", fullname, output)
+			failed_transfers.append(fullname)
+			continue
+		try:
+			deleted, total = cleanup_pi(pi, port, server_path)
+			print(f"{fullname}: transferred successfully; deleted {deleted} of {total} visible source files")
+		except Exception as exc:
+			logger.warning("Cleanup failed for %s: %s. Data remains on this Pi where cleanup did not complete.", fullname, exc)
+			failed_transfers.append(fullname)
+	if not failed_transfers:
 		print(
 			f"\n-----------------------"
-			f"\nAll data successfully transfered from Pis"
+			f"\nAll Pi transfers and cleanup completed"
 			f'\n------------------------'
 			)
 	else:
 		print(
 			f"\n----WARNING!!----"
-			f"\nFailed to copy data from the following Pis"
+			f"\nTransfer or cleanup failed for the following Pis"
 			f'\n{failed_transfers}'
-			f'\nDo not delete data from the Pis until this has been resolved'
+			f'\nCheck these Pis before manually deleting data'
 			f'\n------------------------'
 			)
 
@@ -113,23 +134,6 @@ def get_remote_folders(settings: Settings) -> None:
 		result = run(cmd, capture_output=True,text=True)
 		if not result.returncode == 0:
 			logger.warning(f'Failed to copy {label} data from {remote_path} \n{result.stderr}')
-
-def parse_rsync_stdout(output: str) -> List[str]:
-	"""
-	Parse rsync stdout produced with `--out-format=%n` and return unique top-level paths.
-	"""
-	lines = [l.strip() for l in output.splitlines() if l.strip()]
-	# Remove any surrounding quotes
-	items = [l.strip('"') for l in lines]
-	top_level = []
-	for it in items:
-		try:
-			first = Path(it).parts[0]
-		except Exception:
-			continue
-		if first not in top_level:
-			top_level.append(first)
-	return top_level
 
 if __name__ == "__main__":
 	main()
