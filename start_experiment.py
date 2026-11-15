@@ -63,8 +63,7 @@ def get_session_name(settings: Settings) -> str:
 			suggested = suggested.replace("%experiment%", exp)
 		
 		input_pattern=r"%input.*?%"
-		while search(input_pattern, suggested):
-			match = search(input_pattern, suggested)
+		while (match := search(input_pattern, suggested)) is not None:
 			sub_match = search(r"{.*?}", match.group())
 			if sub_match:
 				label = sub_match.group()[1:-1]
