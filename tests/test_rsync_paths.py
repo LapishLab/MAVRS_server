@@ -147,10 +147,13 @@ class RsyncPathTests(unittest.TestCase):
             "backup_data_path": "user@backup:/archive",
             "other_folders": {"ephys": None, "med": "user@med:/AUTO_med"},
         })
+        backup_data_path = settings.backup_data_path
+        if backup_data_path is None:
+            self.fail("backup_data_path should be populated")
         self.assertIsInstance(settings.local_data_path.path, Path)
-        self.assertIsInstance(settings.backup_data_path.path, PurePosixPath)
+        self.assertIsInstance(backup_data_path.path, PurePosixPath)
         self.assertEqual(other_folders_save_root(settings)["ephys"], settings.local_data_path)
-        self.assertEqual(settings.backup_data_path.rsync_arg(), "user@backup:/archive/")
+        self.assertEqual(backup_data_path.rsync_arg(), "user@backup:/archive/")
         with self.assertRaises(ValueError):
             Settings.model_validate({"local_data_path": "backup:/data", "backup_data_path": None})
         with self.assertRaises(ValueError):
