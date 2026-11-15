@@ -1,55 +1,65 @@
+"""Generate Linux desktop entries for the MAVRS scripts."""
+
 from pathlib import Path
-def main():
-    print("This script generates .desktop launchers for Linux.")
-    repo_root = Path(__file__).parent.parent.parent.resolve()
-    png_folder = repo_root / "setup" / "desktop_launchers" / "png"
-    
-    save_folder = Path.home() / "Desktop" / "MAVRS Launchers"
-    save_folder.mkdir(parents=True, exist_ok=True)
 
-    generate_desktop_launcher(
-        name="Start Experiment",
-        script_path = repo_root / "start_experiment.py",
-        icon_path = png_folder / "start.png",
-        save_directory = save_folder
-        )
-    generate_desktop_launcher(
-        name="Stop Experiment",
-        script_path = repo_root / "stop_experiment.py",
-        icon_path = png_folder / "stop.png",
-        save_directory = save_folder
-    )
-    generate_desktop_launcher(
-        name="Backup Data",
-        script_path = repo_root / "backup_data.py",
-        icon_path = png_folder / "upload.png",
-        save_directory = save_folder
-    )
 
-    generate_desktop_launcher(
-        name="GUI",
-        script_path = repo_root / "user_gui.py",
-        icon_path = png_folder / "glop.png",
-        save_directory = save_folder
-    )
+def _desktop_arg(value: str) -> str:
+    """Quote one Exec argument using desktop-entry escaping rules."""
+    value = value.replace("%", "%%").replace("\\", "\\\\\\\\")
+    for character in ('"', "`", "$"):
+        value = value.replace(character, "\\\\" + character)
+    return f'"{value}"'
 
-def generate_desktop_launcher(name: str, script_path: Path, icon_path: Path, save_directory: Path):
-    content = f"""[Desktop Entry]
-    Version=1.0
-    Type=Application
-    Name={name}
-    Comment=Launch {script_path.name}
-    Exec= sh -c '.venv/bin/python {script_path.name}; echo "Press enter to close window..."; read dummy'
-    Icon={icon_path.as_posix()}
-    Path={script_path.parent.as_posix()}
-    Terminal=true
-    StartupNotify=false
-    """
-    file_slug = name.lower().replace(" ", "_")
-    desktop_file_path = save_directory / f"{file_slug}.desktop"
-    desktop_file_path.write_text(content)
+
+def generate_desktop_launcher(
+    name: str,
+    script_path: Path,
+    icon_path: Path,
+    save_directory: Path,
+    *,
+    interactive: bool = True,
+) -> Path:
+    python_path = script_path.parent / ".venv" / "bin" / "python"
+    command = [python_path.as_posix()]
+    if interactive:
+        command.append((script_path.parent / "terminal_launcher.py").as_posix())
+    command.append(script_path.as_posix())
+
+    content = (
+        "[Desktop Entry]\n"
+        "Version=1.0\n"
+        "Type=Application\n"
+        f"Name={name}\n"
+        f"Comment=Launch {script_path.name}\n"
+        f"Exec={' '.join(_desktop_arg(part) for part in command)}\n"
+        f"Icon={icon_path.as_posix()}\n"
+        f"Path={script_path.parent.as_posix()}\n"
+        f"Terminal={'true' if interactive else 'false'}\n"
+        "StartupNotify=false\n"
+    )
+    save_directory.mkdir(parents=True, exist_ok=True)
+    desktop_file_path = save_directory / f"{name.lower().replace(' ', '_')}.desktop"
+    desktop_file_path.write_text(content, encoding="utf-8")
     desktop_file_path.chmod(0o755)
-    print(f"Created launcher for '{name}' at: {desktop_file_path}")
+    return desktop_file_path
+
+
+def main() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    png_folder = repo_root / "setup" / "desktop_launchers" / "png"
+    save_folder = Path.home() / "Desktop" / "MAVRS Launchers"
+
+    for name, script, icon, interactive in (
+        ("Start Experiment", "start_experiment.py", "start.png", True),
+        ("Stop Experiment", "stop_experiment.py", "stop.png", True),
+        ("Backup Data", "backup_data.py", "upload.png", True),
+        ("GUI", "user_gui.py", "glop.png", False),
+    ):
+        launcher = generate_desktop_launcher(
+            name, repo_root / script, png_folder / icon, save_folder,
+            interactive=interactive,
+        )
+        print(f"Created launcher for '{name}' at: {launcher}")
 
 
 if __name__ == "__main__":
