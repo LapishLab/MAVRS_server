@@ -7,13 +7,17 @@ from pathlib import Path, PurePosixPath
 from subprocess import CalledProcessError, run
 
 logger = logging.getLogger(__name__)
-PI_CLEANUP_SCRIPT = "/home/pi/MAVRS_pi/transfer_cleanup.py"
+PI_CLEANUP_SCRIPT = "~/MAVRS_pi/transfer_cleanup.py"
 
 
-def _pi_command(host: str, port: str, action: str, input_text: str | None = None) -> str:
+def _pi_command(host: str, port: str | None, action: str, input_text: str | None = None) -> str:
+    command = ["ssh"]
+    if port is not None:
+        command.extend(("-p", port))
+    command.extend((host, f"python3 {PI_CLEANUP_SCRIPT} {action}"))
     try:
         result = run(
-            ["ssh", "-p", port, host, f"python3 {PI_CLEANUP_SCRIPT} {action}"],
+            command,
             input=input_text, capture_output=True, text=True, check=True,
         )
     except CalledProcessError as exc:
@@ -42,7 +46,7 @@ def _server_file(root: Path, relative: str):
     return info if stat.S_ISREG(info.st_mode) else None
 
 
-def eligible_files(inventory: list, server_path: str) -> list:
+def eligible_files(inventory: list, server_path: str | Path) -> list:
     """Select source files whose destination is equal or newer."""
     root = Path(server_path)
     selected = []
@@ -55,7 +59,7 @@ def eligible_files(inventory: list, server_path: str) -> list:
     return selected
 
 
-def cleanup_pi(host: str, port: str, server_path: str) -> tuple[int, int]:
+def cleanup_pi(host: str, port: str | None, server_path: str | Path) -> tuple[int, int]:
     inventory = json.loads(_pi_command(host, port, "inventory"))
     selected = eligible_files(inventory, server_path)
     result = json.loads(_pi_command(host, port, "delete", json.dumps(selected)))

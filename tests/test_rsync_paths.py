@@ -1,8 +1,9 @@
 import unittest
-from pathlib import Path
+import os
+from pathlib import Path, PurePosixPath
 from unittest.mock import patch
 
-from rsync_paths import rsync_command, rsync_path
+from rsync_paths import Location, rsync_command, rsync_path
 
 
 class RsyncPathTests(unittest.TestCase):
@@ -15,18 +16,8 @@ class RsyncPathTests(unittest.TestCase):
         self.assertEqual(rsync_path("\\\\server\\share\\data\\", windows=True), "//server/share/data/")
         self.assertEqual(rsync_path("recordings\\session\\", windows=True), "recordings/session/")
 
-    def test_remote_paths_are_preserved(self):
-        for remote in (
-            "pi:/home/pi/MAVRS_pi/data/",
-            "user@example.org:/backup with spaces/",
-            "rsync://example.org/module/data/",
-        ):
-            with self.subTest(remote=remote):
-                self.assertEqual(rsync_path(remote, windows=True), remote)
-
     def test_linux_paths_are_unchanged(self):
         self.assertEqual(rsync_path("/mnt/c/data/", windows=False), "/mnt/c/data/")
-        self.assertEqual(rsync_path("user@host:/data/", windows=False), "user@host:/data/")
 
     def test_windows_rejects_wsl_and_drive_relative_paths(self):
         with self.assertRaisesRegex(ValueError, "WSL path"):
@@ -34,32 +25,161 @@ class RsyncPathTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "absolute Windows drive path"):
             rsync_path("C:data", windows=True)
 
+    @unittest.skipUnless(os.name == "nt", "requires native Windows paths")
     def test_command_converts_only_path_arguments(self):
         convert_for_windows = lambda path: rsync_path(path, windows=True)
         with patch("rsync_paths.rsync_path", side_effect=convert_for_windows):
             self.assertEqual(
                 rsync_command(
-                    "pi:/home/pi/data/", "E:/recordings/",
-                    update=True, exclude=".*", ssh_port=2222,
+                    Location("pi:2222/home/pi/data/"),
+                    Location("E:/recordings/"), update=True, exclude=".*",
                 ),
                 ["rsync", "--archive", "--human-readable", "--info=progress2", "--update",
                  "--exclude=.*", "--rsh=ssh -p 2222",
                  "pi:/home/pi/data/", "/cygdrive/e/recordings/"],
             )
             self.assertEqual(
-                rsync_command("C:/data/", "user@backup:/data/", update=True),
+                rsync_command(Location("C:/data/"), Location("user@backup:/data/"), update=True),
                 ["rsync", "--archive", "--human-readable", "--info=progress2", "--update",
                  "/cygdrive/c/data/", "user@backup:/data/"],
             )
             self.assertEqual(
-                rsync_command("E:/data/", list_only=True),
+                rsync_command(Location("E:/data/"), list_only=True),
                 ["rsync", "--list-only", "/cygdrive/e/data/"],
             )
             self.assertEqual(
-                rsync_command("C:/settings/", "pi:/home/pi/"),
+                rsync_command(Location("C:/settings/"), Location("pi:/home/pi/")),
                 ["rsync", "--archive", "--human-readable", "--info=progress2",
                  "/cygdrive/c/settings/", "pi:/home/pi/"],
             )
+
+    @unittest.skipIf(os.name == "nt", "requires POSIX local paths")
+    def test_command_with_posix_paths(self):
+        self.assertEqual(
+            rsync_command(Location("pi:2222/recordings"), Location("/data"), update=True),
+            ["rsync", "--archive", "--human-readable", "--info=progress2", "--update",
+             "--rsh=ssh -p 2222", "pi:/recordings/", "/data/"],
+        )
+
+    def test_directory_slashes_are_independent_of_config_spelling(self):
+        self.assertEqual(Location("user@backup:/data").rsync_arg(), "user@backup:/data/")
+        self.assertEqual(Location("user@backup:/data/").rsync_arg(), "user@backup:/data/")
+        local = "C:/data" if os.name == "nt" else "/data"
+        self.assertEqual(Location(local).rsync_arg(), Location(f"{local}/").rsync_arg())
+        if os.name == "nt":
+            self.assertEqual(Location("C:/").rsync_arg(), "/cygdrive/c/")
+        else:
+            self.assertEqual(Location("/").rsync_arg(), "/")
+
+    def test_pi_address_parsing(self):
+        pi = Location("pi@10.0.0.2:2222")
+        self.assertEqual((pi.username, pi.host, pi.port), ("pi", "10.0.0.2", 2222))
+        changed = pi.with_path("/home/pi/data")
+        self.assertIsNot(changed, pi)
+        self.assertIsNone(pi.path)
+        self.assertEqual((changed.host, changed.username, changed.port), (pi.host, pi.username, pi.port))
+        self.assertEqual(changed.rsync_arg(), "pi@10.0.0.2:/home/pi/data/")
+        self.assertEqual(Location("pi@10.0.0.2:2222", path_override="~/MAVRS_pi/data").rsync_arg(),
+                         "pi@10.0.0.2:~/MAVRS_pi/data/")
+        self.assertEqual(Location("pi@10.0.0.2:/custom/data", path_override="~/MAVRS_pi/data").rsync_arg(),
+                         "pi@10.0.0.2:~/MAVRS_pi/data/")
+
+    def test_local_path_override_and_copy(self):
+        original, replacement, next_path = (
+            ("C:/original", "E:/replacement", "D:/next") if os.name == "nt"
+            else ("/original", "/replacement", "/next")
+        )
+        local = Location(original, path_override=replacement)
+        self.assertEqual(local.rsync_arg(), Location(replacement).rsync_arg())
+        updated = local.with_path(next_path)
+        self.assertIsNot(updated, local)
+        self.assertEqual(updated.local_path, Path(next_path))
+        self.assertEqual(local.local_path, Path(replacement))
+
+    def test_local_home_paths_expand_for_native_filesystem(self):
+        self.assertEqual(Location("~/data").local_path, Path.home() / "data")
+        self.assertEqual(Location("~").local_path, Path.home())
+        original = "C:/data" if os.name == "nt" else "/data"
+        self.assertEqual(Location(original, path_override="~/other").local_path, Path.home() / "other")
+        self.assertEqual(Location("host:~/data").rsync_arg(), "host:~/data/")
+
+    def test_remote_forms_and_defaults(self):
+        self.assertEqual(Location("a:22").port, 22)
+        camera = Location("camera.local:")
+        self.assertEqual((camera.host, camera.port), ("camera.local", None))
+        named_camera = Location("pi@camera.local")
+        self.assertEqual((named_camera.host, named_camera.username), ("camera.local", "pi"))
+        self.assertEqual((named_camera.port, named_camera.path), (None, None))
+        self.assertEqual(Location("camera.local").host, "camera.local")
+        self.assertEqual(Location("data").host, "data")
+        self.assertEqual(Location("backup:/archive").rsync_arg(), "backup:/archive/")
+        self.assertEqual(Location("user@backup:2222/archive").port, 2222)
+        self.assertEqual(Location("user@backup:~/data").rsync_arg(), "user@backup:~/data/")
+        home = Location("user@backup:2222:~/data")
+        self.assertEqual((home.port, home.rsync_arg()), (2222, "user@backup:~/data/"))
+        ipv6 = Location("user@[2001:db8::1]:/data")
+        self.assertEqual(ipv6.host, "2001:db8::1")
+        self.assertEqual(ipv6.ssh_host, "user@2001:db8::1")
+        self.assertEqual(ipv6.rsync_arg(), "user@[2001:db8::1]:/data/")
+
+    def test_rejects_relative_local_and_invalid_remote_specs(self):
+        for value in ("data/session", "C:data", "host:relative/path", "host:~data",
+                      "host:22~/data", "host::~/data", "host:22:/data",
+                      "host:0/data", "host:65536/data", "user@[bad]:/data"):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                Location(value)
+        with self.assertRaisesRegex(ValueError, "Invalid IPv6 host"):
+            Location("user@[bad:host]:/data")
+        if os.name == "nt":
+            with self.assertRaisesRegex(ValueError, "Invalid Windows path"):
+                Location("C:/data?invalid")
+        with self.assertRaisesRegex(ValueError, "Remote directory must start"):
+            Location("backup:", path_override="relative/data")
+
+    def test_settings_loads_typed_locations(self):
+        with patch.object(Path, "mkdir"):
+            from load_settings import Settings, other_folders_save_root
+
+        local = "C:/data" if os.name == "nt" else "/data"
+        settings = Settings.model_validate({
+            "local_data_path": local,
+            "backup_data_path": "user@backup:/archive",
+            "other_folders": {"ephys": None, "med": "user@med:/AUTO_med"},
+        })
+        self.assertIsInstance(settings.local_data_path.path, Path)
+        self.assertIsInstance(settings.backup_data_path.path, PurePosixPath)
+        self.assertEqual(other_folders_save_root(settings)["ephys"], settings.local_data_path)
+        self.assertEqual(settings.backup_data_path.rsync_arg(), "user@backup:/archive/")
+        with self.assertRaises(ValueError):
+            Settings.model_validate({"local_data_path": "backup:/data", "backup_data_path": None})
+        with self.assertRaises(ValueError):
+            Settings.model_validate({"local_data_path": local, "backup_data_path": "backup:"})
+
+    def test_pi_connection_uses_parsed_user_and_port(self):
+        with patch.object(Path, "mkdir"):
+            from load_settings import load_pi_addresses, load_pi_connections
+
+        with patch("load_settings.read_lines", return_value=["pi@camera.local:2222"]), patch(
+            "load_settings.Connection"
+        ) as connection:
+            self.assertEqual(load_pi_addresses()[0].rsync_arg(),
+                             "pi@camera.local:~/MAVRS_pi/data/")
+            load_pi_connections()
+        self.assertEqual(connection.call_args.kwargs["host"], "camera.local")
+        self.assertEqual(connection.call_args.kwargs["user"], "pi")
+        self.assertEqual(connection.call_args.kwargs["port"], 2222)
+        with patch("load_settings.read_lines", return_value=["camera.local:"]), patch(
+            "load_settings.Connection"
+        ) as connection:
+            load_pi_connections()
+        self.assertIsNone(connection.call_args.kwargs["port"])
+        with patch("load_settings.read_lines", return_value=["pi@camera.local:/custom/data"]):
+            self.assertEqual(load_pi_addresses()[0].rsync_arg(), "pi@camera.local:/custom/data/")
+        with patch("load_settings.read_lines", return_value=["pi@[2001:db8::1]:"]), patch(
+            "load_settings.Connection"
+        ) as connection:
+            load_pi_connections()
+        self.assertEqual(connection.call_args.kwargs["host"], "2001:db8::1")
 
 
 if __name__ == "__main__":

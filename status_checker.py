@@ -8,6 +8,7 @@ from config import ENV, UNIT
 from fabric_tools import run_on_connections
 from fabric import Connection
 from rsync_paths import rsync_command
+from rsync_paths import Location
 
 class PiStatus(Enum):
 	UNREACHABLE = "unreachable"
@@ -43,7 +44,7 @@ def result_2_status(result):
 		return PiStatus.REACHABLE
 	
 
-def check_other_folders_statuses(folders: Optional[dict[str, str]] = None) -> Dict[str, RemoteFolderStatus]:
+def check_other_folders_statuses(folders: Optional[dict[str, Location]] = None) -> Dict[str, RemoteFolderStatus]:
 	statuses: Dict[str, RemoteFolderStatus] = {}
 	if folders is None:
 		folders = other_folders_save_root()

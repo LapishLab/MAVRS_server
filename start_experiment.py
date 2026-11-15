@@ -9,7 +9,7 @@ from pi_sysemd import start_process
 from fabric_tools import run_on_connections
 from typing import Optional, List
 from fabric import Connection
-from rsync_paths import rsync_command
+from rsync_paths import Location, rsync_command
 
 def main() -> None:
 	pis = load_pi_connections()
@@ -40,7 +40,7 @@ def create_other_folders(session: str, settings: Settings) -> bool:
 		folder_name = f"{session}/{label}_{session}"
 		with TemporaryDirectory(prefix="mavrs_") as temp:
 			(Path(temp) / session / f"{label}_{session}").mkdir(parents=True)
-			cmd = rsync_command(f"{temp}/", dest)
+			cmd = rsync_command(Location(temp), dest)
 			try:
 				run(cmd, check=True)
 			except Exception:

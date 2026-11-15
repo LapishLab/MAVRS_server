@@ -5,7 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from transfer_cleanup import cleanup_pi, eligible_files
+from transfer_cleanup import _pi_command, cleanup_pi, eligible_files
 
 
 class TransferCleanupTests(unittest.TestCase):
@@ -61,6 +61,11 @@ class TransferCleanupTests(unittest.TestCase):
             self.assertEqual(cleanup_pi("pi", "2222", "/server"), (1, 2))
         self.assertEqual(len(calls), 2)
         self.assertEqual(calls[0][:2], ("pi", "2222"))
+
+    def test_ssh_config_can_choose_default_port(self):
+        with patch("transfer_cleanup.run", return_value=SimpleNamespace(stdout="ok")) as run:
+            self.assertEqual(_pi_command("pi@camera.local", None, "inventory"), "ok")
+        self.assertEqual(run.call_args.args[0][:2], ["ssh", "pi@camera.local"])
 
 
 if __name__ == "__main__":

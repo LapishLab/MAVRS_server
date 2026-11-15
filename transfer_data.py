@@ -8,7 +8,7 @@ import os
 import logging
 from load_settings import load_settings, load_pi_addresses, Settings, other_folders_save_root
 from path_config import PI_SETTINGS_FOLDER
-from rsync_paths import rsync_command
+from rsync_paths import Location, rsync_command
 from transfer_cleanup import cleanup_pi
 
 logger = logging.getLogger(__name__)
@@ -24,33 +24,25 @@ def copy_to_pi_home() -> None:
 	print("Copying settings to the Pi")
 
 	pi_names = load_pi_addresses()
-	local_settings_path = f"{PI_SETTINGS_FOLDER}/"
-	remote_home = "/home/pi"
+	local_settings_path = Location(PI_SETTINGS_FOLDER)
+	remote_home = "~"
 
 	for fullname in pi_names:
-		if ":" in fullname:
-			pi, port = fullname.split(":")
-		else:
-			pi = fullname
-			port = "22"
-
-		remote_target = f"{pi}:{remote_home}/"
+		remote_target = fullname.with_path(f"{remote_home}/")
 		cmd = rsync_command(
 			local_settings_path, remote_target,
-			ssh_port=port,
 		)
 		result = run(cmd, capture_output=True, text=True)
 		if result.returncode == 0:
-			print(f"Successfully copied settings to {pi}")
+			print(f"Successfully copied settings to {fullname.ssh_host}")
 		else:
-			logger.warning(f"Failed to copy settings to {pi}: {result.stderr}")
+			logger.warning(f"Failed to copy settings to {fullname.ssh_host}: {result.stderr}")
 
-def transfer_pi(fullname: str, server_path: str) -> tuple[str, str, bool, str]:
-	pi, _, port = fullname.partition(":")
-	port = port or "22"
+def transfer_pi(fullname: Location, server_path: Location) -> tuple[str, str | None, bool, str]:
+	pi, port = fullname.ssh_host, str(fullname.port) if fullname.port is not None else None
 	cmd = rsync_command(
-		f"{pi}:/home/pi/MAVRS_pi/data/", server_path,
-		update=True, exclude=".*", ssh_port=port,
+		fullname, server_path,
+		update=True, exclude=".*",
 	)
 	try:
 		proc = Popen(cmd, stdout=PIPE, stderr=STDOUT)
@@ -95,14 +87,14 @@ def transfer_pis(settings: Settings) -> None:
 		pi, port, success, output = results[fullname]
 		if not success:
 			logger.warning("Rsync failed for %s: %s", fullname, output)
-			failed_transfers.append(fullname)
+			failed_transfers.append(str(fullname))
 			continue
 		try:
-			deleted, total = cleanup_pi(pi, port, server_path)
+			deleted, total = cleanup_pi(pi, port, server_path.local_path)
 			print(f"{fullname}: transferred successfully; deleted {deleted} of {total} visible source files")
 		except Exception as exc:
 			logger.warning("Cleanup failed for %s: %s. Data remains on this Pi where cleanup did not complete.", fullname, exc)
-			failed_transfers.append(fullname)
+			failed_transfers.append(str(fullname))
 	if not failed_transfers:
 		print(
 			f"\n-----------------------"
