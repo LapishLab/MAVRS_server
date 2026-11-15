@@ -9,6 +9,13 @@ from rsync_paths import Location
 
 PI_DATA_PATH = "~/MAVRS_pi/data"
 
+class PiConnection(Connection):
+	def open(self):
+		result = super().open()
+		if self.transport is not None:
+			self.transport.set_keepalive(30)
+		return result
+
 class Settings(BaseModel):
 	local_data_path: Location
 	other_folders: Dict[str, Optional[Location]] = {}
@@ -62,9 +69,8 @@ def load_pi_connections() -> List[Connection]:
 	config = Config(overrides={
 		'sudo': {'password': ' '},
 		'timeouts':{'connect':5},
-		'transport':{'keepalive', 30},
 		})
-	return [Connection(host=pi.host, user=pi.username, port=pi.port, config=config) for pi in pi_names]
+	return [PiConnection(host=pi.host, user=pi.username, port=pi.port, config=config) for pi in pi_names]
 
 def read_lines(file: Union[str, Path]) -> List[str]:
 	with open(file, "r") as f:

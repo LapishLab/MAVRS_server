@@ -2,7 +2,7 @@ import unittest
 import os
 from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from rsync_paths import Location, rsync_command, rsync_path
 
@@ -161,7 +161,7 @@ class RsyncPathTests(unittest.TestCase):
             from load_settings import load_pi_addresses, load_pi_connections
 
         with patch("load_settings.read_lines", return_value=["pi@camera.local:2222"]), patch(
-            "load_settings.Connection"
+            "load_settings.PiConnection"
         ) as connection:
             self.assertEqual(load_pi_addresses()[0].rsync_arg(),
                              "pi@camera.local:~/MAVRS_pi/data/")
@@ -170,17 +170,30 @@ class RsyncPathTests(unittest.TestCase):
         self.assertEqual(connection.call_args.kwargs["user"], "pi")
         self.assertEqual(connection.call_args.kwargs["port"], 2222)
         with patch("load_settings.read_lines", return_value=["camera.local:"]), patch(
-            "load_settings.Connection"
+            "load_settings.PiConnection"
         ) as connection:
             load_pi_connections()
         self.assertIsNone(connection.call_args.kwargs["port"])
         with patch("load_settings.read_lines", return_value=["pi@camera.local:/custom/data"]):
             self.assertEqual(load_pi_addresses()[0].rsync_arg(), "pi@camera.local:/custom/data/")
         with patch("load_settings.read_lines", return_value=["pi@[2001:db8::1]:"]), patch(
-            "load_settings.Connection"
+            "load_settings.PiConnection"
         ) as connection:
             load_pi_connections()
         self.assertEqual(connection.call_args.kwargs["host"], "2001:db8::1")
+
+    def test_pi_connection_sets_keepalive_after_opening(self):
+        from fabric import Connection
+        from load_settings import PiConnection
+
+        transport = Mock()
+
+        def open_connection(connection):
+            connection.transport = transport
+
+        with patch.object(Connection, "open", open_connection):
+            PiConnection(host="camera.local").open()
+        transport.set_keepalive.assert_called_once_with(30)
 
 
 if __name__ == "__main__":
