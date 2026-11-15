@@ -1,6 +1,7 @@
 import unittest
 import os
 from pathlib import Path, PurePosixPath
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from rsync_paths import Location, rsync_command, rsync_path
@@ -137,7 +138,7 @@ class RsyncPathTests(unittest.TestCase):
             Location("backup:", path_override="relative/data")
 
     def test_settings_loads_typed_locations(self):
-        with patch.object(Path, "mkdir"):
+        with TemporaryDirectory() as temp, patch.object(Path, "home", return_value=Path(temp)):
             from load_settings import Settings, other_folders_save_root
 
         local = "C:/data" if os.name == "nt" else "/data"
@@ -156,7 +157,7 @@ class RsyncPathTests(unittest.TestCase):
             Settings.model_validate({"local_data_path": local, "backup_data_path": "backup:"})
 
     def test_pi_connection_uses_parsed_user_and_port(self):
-        with patch.object(Path, "mkdir"):
+        with TemporaryDirectory() as temp, patch.object(Path, "home", return_value=Path(temp)):
             from load_settings import load_pi_addresses, load_pi_connections
 
         with patch("load_settings.read_lines", return_value=["pi@camera.local:2222"]), patch(

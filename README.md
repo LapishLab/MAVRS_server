@@ -1,6 +1,12 @@
 # MAVRS_server
  Modular audio and video recording system for rat behavior. Code for DHCP server.
 
+On first launch, MAVRS creates `~/MAVRS_settings` and copies the missing
+`settings.yaml`, `pi_addresses.txt`, and `experiment_names.txt` files from
+`setup/config_templates`. Existing files are preserved. The default settings
+use `~/MAVRS_data` on both Windows and Linux; MAVRS creates that directory with
+the new settings file. Edit `settings.yaml` to use your intended data drive.
+
 ## Native Windows paths with cwRsync
 
 Install cwRsync and add its `bin` directory to the Windows `PATH`. Open a new

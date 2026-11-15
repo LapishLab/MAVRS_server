@@ -1,6 +1,6 @@
 ---
-    # Linux/WSL: /mnt/c/data/ ; native Windows with cwRsync: C:/data/
-    local_data_path: "/mnt/c/data/"
+    # Local path for both Windows and Linux; change this for an external data drive.
+    local_data_path: "~/MAVRS_data/"
     backup_data_path: "lapishla@datastar.psych.indianapolis.iu.edu:/research/behavior_rooms/ephys/B/"
     other_folders:
         ephys:
