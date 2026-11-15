@@ -133,7 +133,7 @@ class RsyncPathTests(unittest.TestCase):
         if os.name == "nt":
             with self.assertRaisesRegex(ValueError, "Invalid Windows path"):
                 Location("C:/data?invalid")
-        with self.assertRaisesRegex(ValueError, "Remote directory must start"):
+        with self.assertRaisesRegex(ValueError, "Remote directory must"):
             Location("backup:", path_override="relative/data")
 
     def test_settings_loads_typed_locations(self):

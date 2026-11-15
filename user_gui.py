@@ -10,9 +10,7 @@ Provides:
 """
 from __future__ import annotations
 
-import shutil
 import sys
-import subprocess
 import time
 from pathlib import Path
 from typing import Optional
@@ -27,6 +25,7 @@ from config import ENV, UNIT
 from load_settings import load_pi_connections
 from path_config import PI_ADDRESS_FILE, EXPERIMENT_NAMES_FILE
 from status_checker import get_pi_statuses, PiStatus, check_other_folders_statuses, RemoteFolderStatus
+from terminal_launcher import launch_script_in_terminal
 from transfer_data import copy_to_pi_home
 
 def relative_window_size(rel_width: float, rel_height: float) -> tuple[int, int]:
@@ -57,36 +56,6 @@ def apply_dark_theme(app: QtWidgets.QApplication) -> None:
 	app.setPalette(palette)
 	# Slight stylesheet to improve contrast for disabled controls
 	app.setStyleSheet("QToolTip { color: #000000; background-color: #ffffdc; border: 1px solid black; }")
-
-def find_terminal_emulator() -> tuple[str, list[str]]:
-	candidates = [
-		("x-terminal-emulator", ["-e"]),
-		("gnome-terminal", ["--"]),
-		("konsole", ["-e"]),
-		("xfce4-terminal", ["--command"]),
-		("xterm", ["-e"]),
-	]
-	for exe, args in candidates:
-		if shutil.which(exe):
-			return exe, args
-	raise RuntimeError(
-		"No terminal emulator found. Install xterm, gnome-terminal, konsole, xfce4-terminal, or x-terminal-emulator."
-	)
-
-
-def launch_script_in_terminal(script_path: Path) -> None:
-	terminal, args = find_terminal_emulator()
-	command = [
-		"sh",
-		"-c",
-		f'{sys.executable} "{script_path}"; echo "Press enter to close window..."; read dummy',
-	]
-	if args == ["--command"]:
-		terminal_args = [terminal] + args + [" ".join(command)]
-	else:
-		terminal_args = [terminal] + args + command
-	subprocess.Popen(terminal_args, cwd=script_path.parent)
-
 
 def stop_thread(thread: QThread | None, worker: QObject | None = None, timeout_ms: int = 5000) -> None:
 	if thread is None or not thread.isRunning():
