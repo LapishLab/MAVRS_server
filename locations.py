@@ -1,4 +1,4 @@
-"""Format local paths for rsync while preserving remote rsync specifications."""
+"""Parse local and remote locations and format them for rsync."""
 
 import ipaddress
 import os
@@ -25,7 +25,7 @@ _REMOTE_SPEC = re.compile(
 )
 
 
-def rsync_path(path: str | Path, *, windows: bool | None = None) -> str:
+def local_path_for_rsync(path: str | Path, *, windows: bool | None = None) -> str:
     """Convert a local Windows path to cwRsync syntax, retaining trailing slashes."""
     raw = os.fspath(path)
     if windows is None:
@@ -153,7 +153,7 @@ class Location:
         if self.path is None:
             raise ValueError("An rsync path is required")
         if self.host is None:
-            argument = rsync_path(str(self.path))
+            argument = local_path_for_rsync(str(self.path))
         else:
             hostname = f"[{self.host}]" if ":" in self.host else self.host
             host = f"{self.username}@{hostname}" if self.username else hostname

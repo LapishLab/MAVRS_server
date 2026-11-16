@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from rsync_paths import Location
+from locations import Location
 from transfer_data import copy_to_pi_home
 
 

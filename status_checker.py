@@ -7,8 +7,8 @@ from load_settings import load_pi_connections, other_folders_save_root
 from config import ENV, UNIT
 from fabric_tools import run_on_connections
 from fabric import Connection
-from rsync_paths import rsync_command
-from rsync_paths import Location
+from locations import rsync_command
+from locations import Location
 
 class PiStatus(Enum):
 	UNREACHABLE = "unreachable"

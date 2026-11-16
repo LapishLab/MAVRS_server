@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from load_settings import load_settings
 from subprocess import run
-from rsync_paths import rsync_command
+from locations import rsync_command
 
 def backup_data() -> None:
 	print("backing up data")

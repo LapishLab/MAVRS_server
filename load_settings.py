@@ -5,7 +5,7 @@ from typing import Dict, Optional, List, Union
 from pydantic import BaseModel, ValidationInfo, field_validator
 from path_config import EXPERIMENT_NAMES_FILE, PI_ADDRESS_FILE, SETTINGS_FILE
 from fabric import Config, Connection
-from rsync_paths import Location
+from locations import Location
 
 PI_DATA_PATH = "~/MAVRS_pi/data"
 

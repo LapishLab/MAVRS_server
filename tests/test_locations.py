@@ -4,32 +4,32 @@ from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
 from unittest.mock import Mock, patch
 
-from rsync_paths import Location, rsync_command, rsync_path
+from locations import Location, rsync_command, local_path_for_rsync
 
 
 class RsyncPathTests(unittest.TestCase):
     def test_windows_drive_paths(self):
-        self.assertEqual(rsync_path("C:\\data\\session\\", windows=True), "/cygdrive/c/data/session/")
-        self.assertEqual(rsync_path("E:/recordings/", windows=True), "/cygdrive/e/recordings/")
-        self.assertEqual(rsync_path(Path("D:/folder with spaces"), windows=True), "/cygdrive/d/folder with spaces")
+        self.assertEqual(local_path_for_rsync("C:\\data\\session\\", windows=True), "/cygdrive/c/data/session/")
+        self.assertEqual(local_path_for_rsync("E:/recordings/", windows=True), "/cygdrive/e/recordings/")
+        self.assertEqual(local_path_for_rsync(Path("D:/folder with spaces"), windows=True), "/cygdrive/d/folder with spaces")
 
     def test_windows_unc_and_relative_paths(self):
-        self.assertEqual(rsync_path("\\\\server\\share\\data\\", windows=True), "//server/share/data/")
-        self.assertEqual(rsync_path("recordings\\session\\", windows=True), "recordings/session/")
+        self.assertEqual(local_path_for_rsync("\\\\server\\share\\data\\", windows=True), "//server/share/data/")
+        self.assertEqual(local_path_for_rsync("recordings\\session\\", windows=True), "recordings/session/")
 
     def test_linux_paths_are_unchanged(self):
-        self.assertEqual(rsync_path("/mnt/c/data/", windows=False), "/mnt/c/data/")
+        self.assertEqual(local_path_for_rsync("/mnt/c/data/", windows=False), "/mnt/c/data/")
 
     def test_windows_rejects_wsl_and_drive_relative_paths(self):
         with self.assertRaisesRegex(ValueError, "WSL path"):
-            rsync_path("/mnt/c/data/", windows=True)
+            local_path_for_rsync("/mnt/c/data/", windows=True)
         with self.assertRaisesRegex(ValueError, "absolute Windows drive path"):
-            rsync_path("C:data", windows=True)
+            local_path_for_rsync("C:data", windows=True)
 
     @unittest.skipUnless(os.name == "nt", "requires native Windows paths")
     def test_command_converts_only_path_arguments(self):
-        convert_for_windows = lambda path: rsync_path(path, windows=True)
-        with patch("rsync_paths.rsync_path", side_effect=convert_for_windows):
+        convert_for_windows = lambda path: local_path_for_rsync(path, windows=True)
+        with patch("locations.local_path_for_rsync", side_effect=convert_for_windows):
             self.assertEqual(
                 rsync_command(
                     Location("pi:2222/home/pi/data/"),

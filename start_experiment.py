@@ -9,7 +9,7 @@ from pi_sysemd import start_process
 from fabric_tools import run_on_connections
 from typing import Optional, List
 from fabric import Connection
-from rsync_paths import Location, rsync_command
+from locations import Location, rsync_command
 
 def main() -> None:
 	pis = load_pi_connections()

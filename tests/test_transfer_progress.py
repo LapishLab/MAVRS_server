@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import Mock, patch
 
-from rsync_paths import Location
+from locations import Location
 from transfer_data import get_remote_folders, stream_rsync
 
 

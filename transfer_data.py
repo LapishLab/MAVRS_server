@@ -8,7 +8,7 @@ import os
 import logging
 from load_settings import load_settings, load_pi_addresses, Settings, other_folders_save_root
 from path_config import PI_SETTINGS_FILE
-from rsync_paths import Location, rsync_command
+from locations import Location, rsync_command
 from transfer_cleanup import cleanup_pi
 
 logger = logging.getLogger(__name__)
