@@ -38,6 +38,28 @@ def copy_to_pi_home() -> None:
 		else:
 			logger.warning(f"Failed to copy settings to {fullname.ssh_host}: {result.stderr}")
 
+def stream_rsync(cmd: list[str], label: str) -> tuple[bool, str]:
+	proc = Popen(cmd, stdout=PIPE, stderr=STDOUT)
+	assert proc.stdout is not None
+	decoder = codecs.getincrementaldecoder("utf-8")("replace")
+	pending = ""
+	recent = deque(maxlen=20)
+	while chunk := os.read(proc.stdout.fileno(), 4096):
+		pending += decoder.decode(chunk)
+		parts = pending.replace("\r", "\n").split("\n")
+		pending = parts.pop()
+		for line in parts:
+			if line.strip():
+				recent.append(line)
+				with progress_lock:
+					print(f"[{label}] {line}", flush=True)
+	pending += decoder.decode(b"", final=True)
+	if pending.strip():
+		recent.append(pending)
+		with progress_lock:
+			print(f"[{label}] {pending}", flush=True)
+	return proc.wait() == 0, "\n".join(recent)
+
 def transfer_pi(fullname: Location, server_path: Location) -> tuple[str, str | None, bool, str]:
 	pi, port = fullname.ssh_host, str(fullname.port) if fullname.port is not None else None
 	cmd = rsync_command(
@@ -45,26 +67,8 @@ def transfer_pi(fullname: Location, server_path: Location) -> tuple[str, str | N
 		update=True, exclude=".*",
 	)
 	try:
-		proc = Popen(cmd, stdout=PIPE, stderr=STDOUT)
-		assert proc.stdout is not None
-		decoder = codecs.getincrementaldecoder("utf-8")("replace")
-		pending = ""
-		recent = deque(maxlen=20)
-		while chunk := os.read(proc.stdout.fileno(), 4096):
-			pending += decoder.decode(chunk)
-			parts = pending.replace("\r", "\n").split("\n")
-			pending = parts.pop()
-			for line in parts:
-				if line.strip():
-					recent.append(line)
-					with progress_lock:
-						print(f"[{fullname}] {line}", flush=True)
-		pending += decoder.decode(b"", final=True)
-		if pending.strip():
-			recent.append(pending)
-			with progress_lock:
-				print(f"[{fullname}] {pending}", flush=True)
-		return pi, port, proc.wait() == 0, "\n".join(recent)
+		success, output = stream_rsync(cmd, str(fullname))
+		return pi, port, success, output
 	except OSError as exc:
 		return pi, port, False, str(exc)
 
@@ -118,9 +122,12 @@ def get_remote_folders(settings: Settings) -> None:
 			continue
 		print(f"Getting {label} folder")
 		cmd = rsync_command(remote_path, local_data, update=True)
-		result = run(cmd, capture_output=True,text=True)
-		if not result.returncode == 0:
-			logger.warning(f'Failed to copy {label} data from {remote_path} \n{result.stderr}')
+		try:
+			success, output = stream_rsync(cmd, label)
+		except OSError as exc:
+			success, output = False, str(exc)
+		if not success:
+			logger.warning('Failed to copy %s data from %s\n%s', label, remote_path, output)
 
 if __name__ == "__main__":
 	main()
