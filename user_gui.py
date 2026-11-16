@@ -408,9 +408,14 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.setWindowTitle("MAVRS server GUI")
 		self.resize(*relative_window_size(0.5, 0.6))
 
-		central = QtWidgets.QWidget()
-		self.setCentralWidget(central)
-		layout = QtWidgets.QVBoxLayout(central)
+		tabs = QtWidgets.QTabWidget()
+		self.setCentralWidget(tabs)
+		main_tab = QtWidgets.QWidget()
+		tabs.addTab(main_tab, "Main")
+		layout = QtWidgets.QVBoxLayout(main_tab)
+		preferences_tab = QtWidgets.QWidget()
+		tabs.addTab(preferences_tab, "Preferences")
+		preferences_layout = QtWidgets.QVBoxLayout(preferences_tab)
 
 		# top buttons
 		btn_layout = QtWidgets.QHBoxLayout()
@@ -418,15 +423,17 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.btn_stop = QtWidgets.QPushButton("Stop Experiment")
 		self.btn_backup = QtWidgets.QPushButton("Backup Data")
 		self.btn_copy_settings = QtWidgets.QPushButton("Copy Settings to Pi")
-		self.btn_edit = QtWidgets.QPushButton("Edit Pi Addresses")
-		self.btn_edit_experiments = QtWidgets.QPushButton("Edit Experiment Names")
 		btn_layout.addWidget(self.btn_start)
 		btn_layout.addWidget(self.btn_stop)
 		btn_layout.addWidget(self.btn_backup)
 		btn_layout.addWidget(self.btn_copy_settings)
-		btn_layout.addWidget(self.btn_edit)
-		btn_layout.addWidget(self.btn_edit_experiments)
 		layout.addLayout(btn_layout)
+
+		self.btn_edit = QtWidgets.QPushButton("Pi Addresses")
+		self.btn_edit_experiments = QtWidgets.QPushButton("Experiment Names")
+		preferences_layout.addWidget(self.btn_edit)
+		preferences_layout.addWidget(self.btn_edit_experiments)
+		preferences_layout.addStretch()
 
 		# tree view for pi statuses
 		self.tree = QtWidgets.QTreeView()
