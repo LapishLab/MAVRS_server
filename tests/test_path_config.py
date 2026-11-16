@@ -14,8 +14,8 @@ class PathConfigTests(unittest.TestCase):
             config = Path(temp) / "MAVRS_settings"
             for name in ("settings.yaml", "pi_addresses.txt", "experiment_names.txt"):
                 self.assertEqual((config / name).read_bytes(), (templates / name).read_bytes())
-            pi_settings_file = config / "pi_settings.yaml"
-            self.assertEqual(pi_settings_file.read_bytes(), (templates / "pi_settings.yaml").read_bytes())
+            pi_settings_file = config / "mavrs_pi_config.yaml"
+            self.assertEqual(pi_settings_file.read_bytes(), (templates / "mavrs_pi_config.yaml").read_bytes())
             self.assertTrue((config / "logs").is_dir())
             self.assertTrue((Path(temp) / "MAVRS_data").is_dir())
 

@@ -3,16 +3,16 @@
 
 On first launch, MAVRS creates `~/MAVRS_settings` and copies the missing
 `settings.yaml`, `pi_addresses.txt`, `experiment_names.txt`, and
-`pi_settings.yaml` files from `setup/config_templates`. Existing files are
+`mavrs_pi_config.yaml` files from `setup/config_templates`. Existing files are
 preserved. The default settings use `~/MAVRS_data` on both Windows and Linux;
 MAVRS creates that directory with
 the new settings file. Edit `settings.yaml` to use your intended data drive.
 The GUI's **Preferences > Data Paths** dialog can edit the local data path,
 backup destination, and other folders. A blank other-folder path uses the local
 data path; a blank backup destination leaves backup unconfigured.
-**Preferences > Pi Settings** opens `~/MAVRS_settings/pi_settings.yaml`.
-If missing, MAVRS copies `setup/config_templates/pi_settings.yaml` there. Use
-**Copy Settings to Pi** to send it to each Pi as `~/pi_settings.yaml`; the Pi
+**Preferences > Pi Settings** opens `~/MAVRS_settings/mavrs_pi_config.yaml`.
+If missing, MAVRS copies `setup/config_templates/mavrs_pi_config.yaml` there. Use
+**Copy Settings to Pi** to send it to each Pi as `~/mavrs_pi_config.yaml`; the Pi
 reads it when recording processes start.
 
 ## Native Windows paths with cwRsync
