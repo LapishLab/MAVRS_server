@@ -149,15 +149,18 @@ class Location:
             raise ValueError("This location is not a local directory")
         return self.path
 
-    def rsync_arg(self) -> str:
+    def rsync_arg(self, *, directory: bool = True) -> str:
         if self.path is None:
-            raise ValueError("An rsync directory needs a path")
+            raise ValueError("An rsync path is required")
         if self.host is None:
-            local_path = str(self.path)
-            return rsync_path(local_path if local_path.endswith(("/", "\\")) else f"{local_path}/")
-        hostname = f"[{self.host}]" if ":" in self.host else self.host
-        host = f"{self.username}@{hostname}" if self.username else hostname
-        return f"{host}:{self.path.as_posix().rstrip('/')}/"
+            argument = rsync_path(str(self.path))
+        else:
+            hostname = f"[{self.host}]" if ":" in self.host else self.host
+            host = f"{self.username}@{hostname}" if self.username else hostname
+            argument = f"{host}:{self.path.as_posix()}"
+        if directory and not argument.endswith("/"):
+            argument += "/"
+        return argument
 
     def __str__(self) -> str:
         if self.host is None:
@@ -177,6 +180,7 @@ def rsync_command(
     source: Location,
     destination: Location | None = None,
     *,
+    source_is_file: bool = False,
     update: bool = False,
     exclude: str | None = None,
     list_only: bool = False,
@@ -196,7 +200,7 @@ def rsync_command(
         raise ValueError("An rsync transfer cannot use two different SSH ports")
     if ports:
         command.append(f"--rsh=ssh -p {ports.pop()}")
-    command.append(source.rsync_arg())
+    command.append(source.rsync_arg(directory=not source_is_file))
     if destination is not None:
         command.append(destination.rsync_arg())
     return command

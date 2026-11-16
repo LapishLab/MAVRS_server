@@ -25,7 +25,7 @@ from PySide6.QtWidgets import QApplication
 from config import ENV, UNIT
 from data_paths import read_data_paths, save_data_paths
 from load_settings import load_pi_connections
-from path_config import PI_ADDRESS_FILE, EXPERIMENT_NAMES_FILE
+from path_config import PI_ADDRESS_FILE, EXPERIMENT_NAMES_FILE, PI_SETTINGS_FILE
 from status_checker import get_pi_statuses, PiStatus, check_other_folders_statuses, RemoteFolderStatus
 from terminal_launcher import launch_script_in_terminal
 from transfer_data import copy_to_pi_home
@@ -550,9 +550,11 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.btn_edit = QtWidgets.QPushButton("Pi Addresses")
 		self.btn_edit_experiments = QtWidgets.QPushButton("Experiment Names")
 		self.btn_data_paths = QtWidgets.QPushButton("Data Paths")
+		self.btn_pi_settings = QtWidgets.QPushButton("Pi Settings")
 		preferences_layout.addWidget(self.btn_data_paths)
 		preferences_layout.addWidget(self.btn_edit)
 		preferences_layout.addWidget(self.btn_edit_experiments)
+		preferences_layout.addWidget(self.btn_pi_settings)
 		preferences_layout.addStretch()
 
 		# tree view for pi statuses
@@ -594,6 +596,7 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.btn_edit.clicked.connect(self.open_editor)
 		self.btn_edit_experiments.clicked.connect(self.open_experiment_name_editor)
 		self.btn_data_paths.clicked.connect(self.open_data_paths)
+		self.btn_pi_settings.clicked.connect(self.open_pi_settings)
 		self.tree.doubleClicked.connect(self.open_log_stream)
 
 		# start pi status worker (separate thread)
@@ -703,6 +706,14 @@ class MainWindow(QtWidgets.QMainWindow):
 			dlg.exec()
 		except Exception as exc:
 			QtWidgets.QMessageBox.critical(self, "Data Paths", f"Failed to open settings: {exc}")
+
+	def open_pi_settings(self) -> None:
+		try:
+			url = QtCore.QUrl.fromLocalFile(str(PI_SETTINGS_FILE))
+			if not QtGui.QDesktopServices.openUrl(url):
+				raise RuntimeError(f"No application could open {PI_SETTINGS_FILE}")
+		except Exception as exc:
+			QtWidgets.QMessageBox.critical(self, "Pi Settings", f"Failed to open Pi settings: {exc}")
 
 	def closeEvent(self, event: QtGui.QCloseEvent) -> None:
 		self.hide()

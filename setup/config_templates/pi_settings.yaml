@@ -1,0 +1,32 @@
+---
+recordings:
+  video: True
+  audio: True
+  gpio: True
+
+gpio:
+  pins:
+    Med: 16
+
+camera:
+  sensor_mode: HDR # options: [HDR, high_res, medium_res, low_res]
+  frame_rate: null # e.g. 30 for a requested FPS; null uses the sensor mode's maximum
+  resolution: null # e.g. [1280, 720]; null uses the sensor mode-based resolution
+  autofocus: null # e.g. true for continuous, false for manual; null uses the camera default
+  lens_position: null # e.g. 0.0 for infinity; larger values focus closer
+  quality : MEDIUM  #VERY_HIGH, HIGH, MEDIUM, LOW, VERY_LOW
+
+streaming:
+  enable: False
+  port: 9000 # VLC: open tcp://<pi-address>:9000
+  queue_size: 16 # maximum encoded frames waiting for the viewer
+
+display:
+  enable: True
+  size_x: 800
+  size_y: 480
+  horizontal_flip: False
+  vertical_flip: False
+  title_fields: ["ExposureTime", "FrameDuration", "Lux"]
+
+ 

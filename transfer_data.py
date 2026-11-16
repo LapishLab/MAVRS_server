@@ -7,7 +7,7 @@ import codecs
 import os
 import logging
 from load_settings import load_settings, load_pi_addresses, Settings, other_folders_save_root
-from path_config import PI_SETTINGS_FOLDER
+from path_config import PI_SETTINGS_FILE
 from rsync_paths import Location, rsync_command
 from transfer_cleanup import cleanup_pi
 
@@ -24,13 +24,14 @@ def copy_to_pi_home() -> None:
 	print("Copying settings to the Pi")
 
 	pi_names = load_pi_addresses()
-	local_settings_path = Location(PI_SETTINGS_FOLDER)
+	local_settings_path = Location(PI_SETTINGS_FILE)
 	remote_home = "~"
 
 	for fullname in pi_names:
 		remote_target = fullname.with_path(f"{remote_home}/")
 		cmd = rsync_command(
 			local_settings_path, remote_target,
+			source_is_file=True,
 		)
 		result = run(cmd, capture_output=True, text=True)
 		if result.returncode == 0:
