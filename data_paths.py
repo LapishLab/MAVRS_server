@@ -6,6 +6,7 @@ from pathlib import Path
 
 import yaml
 
+from load_settings import Settings
 from path_config import SETTINGS_FILE
 
 
@@ -45,6 +46,7 @@ def save_data_paths(
     settings["local_data_path"] = local_path
     settings["backup_data_path"] = backup_path
     settings["other_folders"] = folders
+    Settings.model_validate(settings)
     updated = yaml.safe_dump(settings, sort_keys=False, allow_unicode=True)
 
     temporary_path: Path | None = None

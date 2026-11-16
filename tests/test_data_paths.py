@@ -1,3 +1,4 @@
+import os
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -16,8 +17,11 @@ class DataPathsTests(unittest.TestCase):
         self.settings_file = Path(temporary.name) / "settings.yaml"
 
     def test_save_preserves_unrelated_setting_values(self) -> None:
+        old_local = "C:/old/" if os.name == "nt" else "/old/"
+        new_local = "C:/new/#data/" if os.name == "nt" else "/new/#data/"
+        extra_path = "D:/more/" if os.name == "nt" else "/more/"
         self.settings_file.write_text(
-            'local_data_path: "C:/old/" # local note\n'
+            f'local_data_path: "{old_local}" # local note\n'
             'backup_data_path: "user@old:/backup/"\n'
             'other_folders:\n'
             '  ephys:\n'
@@ -29,14 +33,14 @@ class DataPathsTests(unittest.TestCase):
         )
 
         save_data_paths(
-            "C:/new/#data/", None,
-            {"ephys": None, "med_pc": "user@new:/data/#session", "extra": "D:/more/"},
+            new_local, None,
+            {"ephys": None, "med_pc": "user@new:/data/#session", "extra": extra_path},
             self.settings_file,
         )
 
         self.assertEqual(
             read_data_paths(self.settings_file),
-            ("C:/new/#data/", None, {"ephys": None, "med_pc": "user@new:/data/#session", "extra": "D:/more/"}),
+            (new_local, None, {"ephys": None, "med_pc": "user@new:/data/#session", "extra": extra_path}),
         )
         saved = yaml.safe_load(self.settings_file.read_text(encoding="utf-8"))
         self.assertEqual(saved["suggested_name_format"], "%date%_%experiment%")
@@ -44,15 +48,52 @@ class DataPathsTests(unittest.TestCase):
         self.assertNotIn("# local note", self.settings_file.read_text(encoding="utf-8"))
 
     def test_save_can_add_missing_folder_setting_and_remove_all_rows(self) -> None:
+        old_local = "C:/old/" if os.name == "nt" else "/old/"
+        new_local = "C:/new/" if os.name == "nt" else "/new/"
         self.settings_file.write_text(
-            'local_data_path: "/old/"\nbackup_data_path: null\nsuggested_name_format: "%date%"\n',
+            f'local_data_path: "{old_local}"\nbackup_data_path: null\nsuggested_name_format: "%date%"\n',
             encoding="utf-8",
         )
 
-        save_data_paths("/new/", "user@host:/backup/", {}, self.settings_file)
+        save_data_paths(new_local, "user@host:/backup/", {}, self.settings_file)
 
-        self.assertEqual(read_data_paths(self.settings_file), ("/new/", "user@host:/backup/", {}))
+        self.assertEqual(read_data_paths(self.settings_file), (new_local, "user@host:/backup/", {}))
         self.assertEqual(yaml.safe_load(self.settings_file.read_text())["other_folders"], {})
+
+    def test_invalid_paths_are_not_saved(self) -> None:
+        local = "C:/data/" if os.name == "nt" else "/data/"
+        self.settings_file.write_text(
+            yaml.safe_dump({"local_data_path": local, "backup_data_path": None, "other_folders": {}}),
+            encoding="utf-8",
+        )
+        original = self.settings_file.read_text(encoding="utf-8")
+
+        for local_path, backup_path, folders in (
+            ("user@host:/remote/", None, {}),
+            (local, "user@host:", {}),
+            (local, None, {"ephys": "relative/folder"}),
+        ):
+            with self.subTest(local_path=local_path, backup_path=backup_path, folders=folders):
+                with self.assertRaises(ValueError):
+                    save_data_paths(local_path, backup_path, folders, self.settings_file)
+                self.assertEqual(self.settings_file.read_text(encoding="utf-8"), original)
+
+    def test_validation_messages_identify_fields_and_folder(self) -> None:
+        from pydantic import ValidationError
+        from load_settings import Settings
+        from user_gui import format_settings_validation_errors
+
+        with self.assertRaises(ValidationError) as caught:
+            Settings.model_validate({
+                "local_data_path": "user@host:/remote/",
+                "backup_data_path": "user@host:",
+                "other_folders": {"ephys": "relative/folder"},
+            })
+
+        message = format_settings_validation_errors(caught.exception)
+        self.assertIn("Local data path: must be a local directory", message)
+        self.assertIn("Backup data path: requires a directory path", message)
+        self.assertIn("Other folders: Folder 'ephys':", message)
 
     def test_invalid_yaml_is_not_overwritten(self) -> None:
         original = "local_data_path: [broken\n"

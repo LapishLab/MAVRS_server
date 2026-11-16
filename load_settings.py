@@ -37,9 +37,17 @@ class Settings(BaseModel):
 	def none2dict(cls, v):
 		if v is None:
 			return {}
-		folders = {label: Location(path) if isinstance(path, str) else path for label, path in v.items()}
-		if any(location is not None and location.path is None for location in folders.values()):
-			raise ValueError("Each other_folders location needs a directory path")
+		if not isinstance(v, dict):
+			return v
+		folders = {}
+		for label, path in v.items():
+			try:
+				location = Location(path) if isinstance(path, str) else path
+			except ValueError as exc:
+				raise ValueError(f"Folder {label!r}: {exc}") from exc
+			if isinstance(location, Location) and location.path is None:
+				raise ValueError(f"Folder {label!r} needs a directory path")
+			folders[label] = location
 		return folders
 
 def load_settings() -> Settings:

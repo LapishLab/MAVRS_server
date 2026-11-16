@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Optional
 
 from fabric import Connection
+from pydantic import ValidationError
 from PySide6 import QtCore, QtWidgets, QtGui
 from PySide6.QtCore import QObject, Signal, Slot, QThread
 from PySide6.QtGui import QStandardItemModel, QStandardItem
@@ -28,6 +29,26 @@ from path_config import PI_ADDRESS_FILE, EXPERIMENT_NAMES_FILE
 from status_checker import get_pi_statuses, PiStatus, check_other_folders_statuses, RemoteFolderStatus
 from terminal_launcher import launch_script_in_terminal
 from transfer_data import copy_to_pi_home
+
+def format_settings_validation_errors(error: ValidationError) -> str:
+	field_names = {
+		"local_data_path": "Local data path",
+		"backup_data_path": "Backup data path",
+		"other_folders": "Other folders",
+		"suggested_name_format": "Session name format",
+	}
+	messages = []
+	for issue in error.errors():
+		location = issue["loc"]
+		field = str(location[0]) if location else "Settings"
+		label = field_names.get(field, field)
+		if len(location) > 1:
+			label += f" ({', '.join(str(part) for part in location[1:])})"
+		message = issue["msg"].removeprefix("Value error, ")
+		message = message.removeprefix(f"{field} ")
+		messages.append(f"{label}: {message}")
+	return "\n".join(messages)
+
 
 def relative_window_size(rel_width: float, rel_height: float) -> tuple[int, int]:
 	screen = QApplication.primaryScreen()
@@ -490,6 +511,9 @@ class DataPathsDialog(QtWidgets.QDialog):
 			folders[name] = path or None
 		try:
 			save_data_paths(self.local_path.text(), self.backup_path.text() or None, folders)
+		except ValidationError as exc:
+			QtWidgets.QMessageBox.warning(self, "Invalid Data Paths", format_settings_validation_errors(exc))
+			return
 		except Exception as exc:
 			QtWidgets.QMessageBox.critical(self, "Data Paths", f"Failed to save settings: {exc}")
 			return
