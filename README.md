@@ -10,10 +10,14 @@ the new settings file. Edit `settings.yaml` to use your intended data drive.
 The GUI's **Preferences > Data Paths** dialog can edit the local data path,
 backup destination, and other folders. A blank other-folder path uses the local
 data path; a blank backup destination leaves backup unconfigured.
-**Preferences > Pi Settings** opens `~/MAVRS_settings/mavrs_pi_config.yaml`.
-If missing, MAVRS copies `setup/config_templates/mavrs_pi_config.yaml` there. Use
-**Copy Settings to Pi** to send it to each Pi as `~/mavrs_pi_config.yaml`; the Pi
-reads it when recording processes start.
+**Preferences > Pi fleet Settings** opens a window for
+`~/MAVRS_settings/mavrs_pi_config.yaml`. If missing, MAVRS copies
+`setup/config_templates/mavrs_pi_config.yaml` there. Open the file in your
+system editor, save changes, then deploy to the selected Pis. The table shows
+addresses and comments from `pi_addresses.txt`; active Pis start selected, while
+commented-out Pis start unselected. The header checkbox selects or clears all
+valid addresses. Each Pi reads the file as `~/mavrs_pi_config.yaml` when
+recording processes start.
 
 ## Native Windows paths with cwRsync
 

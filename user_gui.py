@@ -25,6 +25,7 @@ from PySide6.QtWidgets import QApplication
 from config import ENV, UNIT
 from data_paths import read_data_paths, save_data_paths
 from load_settings import load_pi_connections
+from locations import Location
 from path_config import PI_ADDRESS_FILE, EXPERIMENT_NAMES_FILE, PI_SETTINGS_FILE
 from status_checker import get_pi_statuses, PiStatus, check_other_folders_statuses, RemoteFolderStatus
 from terminal_launcher import launch_script_in_terminal
@@ -48,6 +49,23 @@ def format_settings_validation_errors(error: ValidationError) -> str:
 		message = message.removeprefix(f"{field} ")
 		messages.append(f"{label}: {message}")
 	return "\n".join(messages)
+
+
+def show_pi_settings_results(
+	parent: QtWidgets.QWidget, results: list[tuple[Location, str | None]]
+) -> None:
+	if not results:
+		QtWidgets.QMessageBox.information(parent, "Pi Settings", "No enabled Pis were found.")
+		return
+	failures = [(pi, error) for pi, error in results if error is not None]
+	if failures:
+		copied = len(results) - len(failures)
+		details = "\n".join(f"{pi}: {error}" for pi, error in failures)
+		QtWidgets.QMessageBox.warning(
+			parent, "Pi Settings", f"Copied settings to {copied} of {len(results)} Pis.\n\nFailed:\n{details}"
+		)
+	else:
+		QtWidgets.QMessageBox.information(parent, "Pi Settings", f"Copied settings to all {len(results)} Pis.")
 
 
 def relative_window_size(rel_width: float, rel_height: float) -> tuple[int, int]:
@@ -293,7 +311,8 @@ class PiEditorDialog(QtWidgets.QDialog):
 			checked, main, comment = self.parse_line(line)
 			self.add_row(checked, main, comment)
 
-	def parse_line(self, line: str) -> tuple[bool, str, str]:
+	@staticmethod
+	def parse_line(line: str) -> tuple[bool, str, str]:
 		raw = line.strip()
 		if raw.startswith("#"):
 			checked = False
@@ -520,6 +539,118 @@ class DataPathsDialog(QtWidgets.QDialog):
 		self.accept()
 
 
+class PiFleetSettingsDialog(QtWidgets.QDialog):
+	def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
+		super().__init__(parent)
+		self.setWindowTitle("Pi fleet Settings")
+		self.resize(*relative_window_size(0.4, 0.5))
+		layout = QtWidgets.QVBoxLayout(self)
+
+		self.btn_open_file = QtWidgets.QPushButton("Open settings file in editor")
+		layout.addWidget(self.btn_open_file)
+
+		scroll = QtWidgets.QScrollArea()
+		scroll.setWidgetResizable(True)
+		container = QtWidgets.QWidget()
+		grid = QtWidgets.QGridLayout(container)
+		grid.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
+		grid.setColumnStretch(1, 1)
+		grid.setColumnStretch(2, 1)
+		self.select_all_checkbox = QtWidgets.QCheckBox()
+		self.select_all_checkbox.setToolTip("Select or clear all Pi addresses")
+		grid.addWidget(self.select_all_checkbox, 0, 0)
+		address_label = QtWidgets.QLabel("Pi Address")
+		comment_label = QtWidgets.QLabel("Comment")
+		font = address_label.font()
+		font.setBold(True)
+		address_label.setFont(font)
+		comment_label.setFont(font)
+		grid.addWidget(address_label, 0, 1)
+		grid.addWidget(comment_label, 0, 2)
+
+		self.pi_checkboxes: list[tuple[Location, QtWidgets.QCheckBox]] = []
+		lines = PI_ADDRESS_FILE.read_text().splitlines() if PI_ADDRESS_FILE.exists() else []
+		for row, line in enumerate(lines, start=1):
+			active, address, comment = PiEditorDialog.parse_line(line)
+			checkbox = QtWidgets.QCheckBox()
+			try:
+				pi = Location(address) if address else None
+			except ValueError:
+				pi = None
+			if pi is None or pi.host is None:
+				checkbox.setEnabled(False)
+				checkbox.setToolTip("Not a valid Pi address")
+			else:
+				checkbox.setChecked(active)
+				self.pi_checkboxes.append((pi, checkbox))
+			address_field = QtWidgets.QLineEdit(address)
+			address_field.setReadOnly(True)
+			comment_field = QtWidgets.QLineEdit(comment)
+			comment_field.setReadOnly(True)
+			grid.addWidget(checkbox, row, 0)
+			grid.addWidget(address_field, row, 1)
+			grid.addWidget(comment_field, row, 2)
+		if not lines:
+			grid.addWidget(QtWidgets.QLabel("No Pi addresses are configured."), 1, 1, 1, 2)
+		self.select_all_checkbox.setEnabled(bool(self.pi_checkboxes))
+		self.select_all_checkbox.setChecked(
+			bool(self.pi_checkboxes) and all(checkbox.isChecked() for _, checkbox in self.pi_checkboxes)
+		)
+		scroll.setWidget(container)
+		layout.addWidget(scroll)
+
+		self.btn_deploy = QtWidgets.QPushButton("Deploy settings to selected Pis")
+		self.btn_deploy.setEnabled(any(checkbox.isChecked() for _, checkbox in self.pi_checkboxes))
+		layout.addWidget(self.btn_deploy)
+		self.status_label = QtWidgets.QLabel()
+		layout.addWidget(self.status_label)
+		self.btn_close = QtWidgets.QPushButton("Close")
+		layout.addWidget(self.btn_close)
+
+		self.btn_open_file.clicked.connect(self.open_settings_file)
+		self.btn_deploy.clicked.connect(self.deploy_settings)
+		self.btn_close.clicked.connect(self.close)
+		self.select_all_checkbox.toggled.connect(self.set_all_pis_selected)
+		for _, checkbox in self.pi_checkboxes:
+			checkbox.toggled.connect(self.update_selection_state)
+
+	def set_all_pis_selected(self, selected: bool) -> None:
+		for _, checkbox in self.pi_checkboxes:
+			checkbox.setChecked(selected)
+
+	def update_selection_state(self) -> None:
+		selected = [checkbox.isChecked() for _, checkbox in self.pi_checkboxes]
+		self.btn_deploy.setEnabled(any(selected))
+		was_blocked = self.select_all_checkbox.blockSignals(True)
+		self.select_all_checkbox.setChecked(bool(selected) and all(selected))
+		self.select_all_checkbox.blockSignals(was_blocked)
+
+	def open_settings_file(self) -> None:
+		try:
+			url = QtCore.QUrl.fromLocalFile(str(PI_SETTINGS_FILE))
+			if not QtGui.QDesktopServices.openUrl(url):
+				raise RuntimeError(f"No application could open {PI_SETTINGS_FILE}")
+		except Exception as exc:
+			QtWidgets.QMessageBox.critical(self, "Pi Settings", f"Failed to open Pi settings: {exc}")
+
+	def deploy_settings(self) -> None:
+		selected = [pi for pi, checkbox in self.pi_checkboxes if checkbox.isChecked()]
+		if not selected:
+			return
+		self.btn_deploy.setEnabled(False)
+		self.status_label.setText(f"Deploying settings to {len(selected)} Pis...")
+		QApplication.processEvents()
+		try:
+			results = copy_to_pi_home(selected)
+		except Exception as exc:
+			QtWidgets.QMessageBox.critical(self, "Pi Settings", f"Failed to deploy settings: {exc}")
+		else:
+			show_pi_settings_results(self, results)
+		finally:
+			self.status_label.clear()
+			self.update_selection_state()
+
+
 class MainWindow(QtWidgets.QMainWindow):
 	def __init__(self) -> None:
 		super().__init__()
@@ -540,17 +671,15 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.btn_start = QtWidgets.QPushButton("Start Experiment")
 		self.btn_stop = QtWidgets.QPushButton("Stop Experiment")
 		self.btn_backup = QtWidgets.QPushButton("Backup Data")
-		self.btn_copy_settings = QtWidgets.QPushButton("Copy Settings to Pi")
 		btn_layout.addWidget(self.btn_start)
 		btn_layout.addWidget(self.btn_stop)
 		btn_layout.addWidget(self.btn_backup)
-		btn_layout.addWidget(self.btn_copy_settings)
 		layout.addLayout(btn_layout)
 
 		self.btn_edit = QtWidgets.QPushButton("Pi Addresses")
 		self.btn_edit_experiments = QtWidgets.QPushButton("Experiment Names")
 		self.btn_data_paths = QtWidgets.QPushButton("Data Paths")
-		self.btn_pi_settings = QtWidgets.QPushButton("Pi Settings")
+		self.btn_pi_settings = QtWidgets.QPushButton("Pi fleet Settings")
 		preferences_layout.addWidget(self.btn_data_paths)
 		preferences_layout.addWidget(self.btn_edit)
 		preferences_layout.addWidget(self.btn_edit_experiments)
@@ -592,7 +721,6 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.btn_start.clicked.connect(self.start_experiment)
 		self.btn_stop.clicked.connect(self.stop_experiment)
 		self.btn_backup.clicked.connect(self.backup_data)
-		self.btn_copy_settings.clicked.connect(self.copy_settings_to_pi)
 		self.btn_edit.clicked.connect(self.open_editor)
 		self.btn_edit_experiments.clicked.connect(self.open_experiment_name_editor)
 		self.btn_data_paths.clicked.connect(self.open_data_paths)
@@ -686,12 +814,6 @@ class MainWindow(QtWidgets.QMainWindow):
 		except Exception as exc:
 			QtWidgets.QMessageBox.critical(self, "Error", f"Failed to start backup: {exc}")
 
-	def copy_settings_to_pi(self) -> None:
-		try:
-			copy_to_pi_home()
-		except Exception as exc:
-			QtWidgets.QMessageBox.critical(self, "Error", f"Failed to copy settings to Pi: {exc}")
-
 	def open_editor(self) -> None:
 		dlg = PiEditorDialog(self)
 		dlg.exec()
@@ -709,11 +831,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
 	def open_pi_settings(self) -> None:
 		try:
-			url = QtCore.QUrl.fromLocalFile(str(PI_SETTINGS_FILE))
-			if not QtGui.QDesktopServices.openUrl(url):
-				raise RuntimeError(f"No application could open {PI_SETTINGS_FILE}")
+			dlg = PiFleetSettingsDialog(self)
+			dlg.exec()
 		except Exception as exc:
-			QtWidgets.QMessageBox.critical(self, "Pi Settings", f"Failed to open Pi settings: {exc}")
+			QtWidgets.QMessageBox.critical(self, "Pi Settings", f"Failed to open Pi fleet settings: {exc}")
 
 	def closeEvent(self, event: QtGui.QCloseEvent) -> None:
 		self.hide()

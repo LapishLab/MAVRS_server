@@ -20,12 +20,13 @@ def main() -> None:
 		get_remote_folders(settings)
 	transfer_pis(settings)
 	
-def copy_to_pi_home() -> None:
+def copy_to_pi_home(pis: list[Location] | None = None) -> list[tuple[Location, str | None]]:
 	print("Copying settings to the Pi")
 
-	pi_names = load_pi_addresses()
+	pi_names = load_pi_addresses() if pis is None else pis
 	local_settings_path = Location(PI_SETTINGS_FILE)
 	remote_home = "~"
+	results: list[tuple[Location, str | None]] = []
 
 	for fullname in pi_names:
 		remote_target = fullname.with_path(f"{remote_home}/")
@@ -33,11 +34,17 @@ def copy_to_pi_home() -> None:
 			local_settings_path, remote_target,
 			source_is_file=True,
 		)
-		result = run(cmd, capture_output=True, text=True)
-		if result.returncode == 0:
+		try:
+			result = run(cmd, capture_output=True, text=True)
+			error = None if result.returncode == 0 else (result.stderr or "").strip() or f"rsync exited with code {result.returncode}"
+		except OSError as exc:
+			error = str(exc)
+		results.append((fullname, error))
+		if error is None:
 			print(f"Successfully copied settings to {fullname.ssh_host}")
 		else:
-			logger.warning(f"Failed to copy settings to {fullname.ssh_host}: {result.stderr}")
+			logger.warning("Failed to copy settings to %s: %s", fullname.ssh_host, error)
+	return results
 
 def stream_rsync(cmd: list[str], label: str) -> tuple[bool, str]:
 	proc = Popen(cmd, stdout=PIPE, stderr=STDOUT)
