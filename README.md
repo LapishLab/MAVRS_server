@@ -6,6 +6,9 @@ On first launch, MAVRS creates `~/MAVRS_settings` and copies the missing
 `setup/config_templates`. Existing files are preserved. The default settings
 use `~/MAVRS_data` on both Windows and Linux; MAVRS creates that directory with
 the new settings file. Edit `settings.yaml` to use your intended data drive.
+The GUI's **Preferences > Data Paths** dialog can edit the local data path,
+backup destination, and other folders. A blank other-folder path uses the local
+data path; a blank backup destination leaves backup unconfigured.
 
 ## Native Windows paths with cwRsync
 

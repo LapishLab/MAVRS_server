@@ -22,6 +22,7 @@ from PySide6.QtGui import QStandardItemModel, QStandardItem
 from PySide6.QtWidgets import QApplication
 
 from config import ENV, UNIT
+from data_paths import read_data_paths, save_data_paths
 from load_settings import load_pi_connections
 from path_config import PI_ADDRESS_FILE, EXPERIMENT_NAMES_FILE
 from status_checker import get_pi_statuses, PiStatus, check_other_folders_statuses, RemoteFolderStatus
@@ -402,6 +403,99 @@ class ExperimentNameEditorDialog(QtWidgets.QDialog):
 		Path(EXPERIMENT_NAMES_FILE).write_text("\n".join(out_lines) + "\n")
 
 
+class DataPathsDialog(QtWidgets.QDialog):
+	def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
+		super().__init__(parent)
+		self.setWindowTitle("Data Paths")
+		self.resize(*relative_window_size(0.6, 0.6))
+		layout = QtWidgets.QVBoxLayout(self)
+
+		paths = QtWidgets.QFormLayout()
+		self.local_path = QtWidgets.QLineEdit()
+		self.backup_path = QtWidgets.QLineEdit()
+		self.backup_path.setPlaceholderText("Leave blank if no backup destination is configured")
+		paths.addRow("Local data path", self.local_path)
+		paths.addRow("Backup data path", self.backup_path)
+		layout.addLayout(paths)
+		warning = QtWidgets.QLabel("Changing paths during a recording can redirect data collection when it stops.")
+		warning.setWordWrap(True)
+		layout.addWidget(warning)
+
+		folder_group = QtWidgets.QGroupBox("Other Folders")
+		folder_layout = QtWidgets.QVBoxLayout(folder_group)
+		headers = QtWidgets.QHBoxLayout()
+		headers.addWidget(QtWidgets.QLabel("Folder name"), 1)
+		headers.addWidget(QtWidgets.QLabel("Path (blank uses local data path)"), 2)
+		headers.addSpacing(80)
+		folder_layout.addLayout(headers)
+		self.folder_scroll = QtWidgets.QScrollArea()
+		self.folder_scroll.setWidgetResizable(True)
+		self.folder_container = QtWidgets.QWidget()
+		self.folder_rows_layout = QtWidgets.QVBoxLayout(self.folder_container)
+		self.folder_rows_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
+		self.folder_scroll.setWidget(self.folder_container)
+		folder_layout.addWidget(self.folder_scroll)
+		layout.addWidget(folder_group)
+
+		buttons = QtWidgets.QHBoxLayout()
+		self.btn_add_folder = QtWidgets.QPushButton("Add Folder")
+		self.btn_save = QtWidgets.QPushButton("Save")
+		self.btn_close = QtWidgets.QPushButton("Close")
+		buttons.addWidget(self.btn_add_folder)
+		buttons.addStretch()
+		buttons.addWidget(self.btn_save)
+		buttons.addWidget(self.btn_close)
+		layout.addLayout(buttons)
+
+		self.folder_rows: list[tuple[QtWidgets.QWidget, QtWidgets.QLineEdit, QtWidgets.QLineEdit]] = []
+		self.btn_add_folder.clicked.connect(lambda: self.add_folder_row())
+		self.btn_save.clicked.connect(self.save)
+		self.btn_close.clicked.connect(self.reject)
+
+		local_path, backup_path, folders = read_data_paths()
+		self.local_path.setText(local_path)
+		self.backup_path.setText(backup_path or "")
+		for name, path in folders.items():
+			self.add_folder_row(name, path or "")
+
+	def add_folder_row(self, name: str = "", path: str = "") -> None:
+		row = QtWidgets.QWidget()
+		row_layout = QtWidgets.QHBoxLayout(row)
+		row_layout.setContentsMargins(0, 0, 0, 0)
+		name_edit = QtWidgets.QLineEdit(name)
+		path_edit = QtWidgets.QLineEdit(path)
+		remove_button = QtWidgets.QPushButton("Remove")
+		row_layout.addWidget(name_edit, 1)
+		row_layout.addWidget(path_edit, 2)
+		row_layout.addWidget(remove_button)
+		self.folder_rows_layout.addWidget(row)
+		self.folder_rows.append((row, name_edit, path_edit))
+		remove_button.clicked.connect(lambda: self.remove_folder_row(row))
+
+	def remove_folder_row(self, row: QtWidgets.QWidget) -> None:
+		self.folder_rows = [entry for entry in self.folder_rows if entry[0] is not row]
+		self.folder_rows_layout.removeWidget(row)
+		row.deleteLater()
+
+	def save(self) -> None:
+		folders: dict[str, str | None] = {}
+		for _, name_edit, path_edit in self.folder_rows:
+			name = name_edit.text().strip()
+			path = path_edit.text()
+			if not name and not path:
+				continue
+			if not name or name in folders:
+				QtWidgets.QMessageBox.warning(self, "Other Folders", "Each folder needs a unique name.")
+				return
+			folders[name] = path or None
+		try:
+			save_data_paths(self.local_path.text(), self.backup_path.text() or None, folders)
+		except Exception as exc:
+			QtWidgets.QMessageBox.critical(self, "Data Paths", f"Failed to save settings: {exc}")
+			return
+		self.accept()
+
+
 class MainWindow(QtWidgets.QMainWindow):
 	def __init__(self) -> None:
 		super().__init__()
@@ -431,6 +525,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
 		self.btn_edit = QtWidgets.QPushButton("Pi Addresses")
 		self.btn_edit_experiments = QtWidgets.QPushButton("Experiment Names")
+		self.btn_data_paths = QtWidgets.QPushButton("Data Paths")
+		preferences_layout.addWidget(self.btn_data_paths)
 		preferences_layout.addWidget(self.btn_edit)
 		preferences_layout.addWidget(self.btn_edit_experiments)
 		preferences_layout.addStretch()
@@ -473,6 +569,7 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.btn_copy_settings.clicked.connect(self.copy_settings_to_pi)
 		self.btn_edit.clicked.connect(self.open_editor)
 		self.btn_edit_experiments.clicked.connect(self.open_experiment_name_editor)
+		self.btn_data_paths.clicked.connect(self.open_data_paths)
 		self.tree.doubleClicked.connect(self.open_log_stream)
 
 		# start pi status worker (separate thread)
@@ -575,6 +672,13 @@ class MainWindow(QtWidgets.QMainWindow):
 	def open_experiment_name_editor(self) -> None:
 		dlg = ExperimentNameEditorDialog(self)
 		dlg.exec()
+
+	def open_data_paths(self) -> None:
+		try:
+			dlg = DataPathsDialog(self)
+			dlg.exec()
+		except Exception as exc:
+			QtWidgets.QMessageBox.critical(self, "Data Paths", f"Failed to open settings: {exc}")
 
 	def closeEvent(self, event: QtGui.QCloseEvent) -> None:
 		self.hide()
