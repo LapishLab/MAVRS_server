@@ -21,8 +21,8 @@ recording processes start.
 
 ## Native Windows paths with cwRsync
 
-Install cwRsync and add its `bin` directory to the Windows `PATH`. Open a new
-terminal and check that `rsync --version` runs. Run MAVRS with native Windows
+Install cwRsync with `setup/install_cwrsync.ps1`. MAVRS uses the executables
+under `.tools/cwrsync/bin` on Windows. Run MAVRS with native Windows
 Python and set `local_data_path` in `~/MAVRS_settings/settings.yaml` to a native
 Windows path, for example:
 

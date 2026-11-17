@@ -15,7 +15,8 @@ class PiSettingsTransferTests(unittest.TestCase):
 
         self.assertEqual(results, [(pi, None)])
         command = run.call_args.args[0]
-        self.assertIn("--rsh=ssh -p 2222", command)
+        self.assertTrue(command[1].startswith("--rsh="))
+        self.assertTrue(command[1].endswith(" -p 2222"))
         self.assertTrue(command[-2].endswith("/mavrs_pi_config.yaml"))
         self.assertEqual(command[-1], "pi@camera.local:~/")
 

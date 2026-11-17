@@ -4,7 +4,7 @@ from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
 from unittest.mock import Mock, patch
 
-from locations import Location, rsync_command, local_path_for_rsync
+from locations import Location, build_rsh_command, rsync_command, local_path_for_rsync
 
 
 class RsyncPathTests(unittest.TestCase):
@@ -29,30 +29,57 @@ class RsyncPathTests(unittest.TestCase):
     @unittest.skipUnless(os.name == "nt", "requires native Windows paths")
     def test_command_converts_only_path_arguments(self):
         convert_for_windows = lambda path: local_path_for_rsync(path, windows=True)
-        with patch("locations.local_path_for_rsync", side_effect=convert_for_windows):
+        rsync_executable = str(Path(__file__).resolve().parents[1] / ".tools" / "cwrsync" / "bin" / "rsync.exe")
+        with patch("locations.local_path_for_rsync", side_effect=convert_for_windows), patch(
+            "locations.build_rsh_command",
+            side_effect=lambda port: f"--rsh=ssh -p {port}" if port is not None else "--rsh=ssh",
+        ):
             self.assertEqual(
                 rsync_command(
                     Location("pi:2222/home/pi/data/"),
                     Location("E:/recordings/"), update=True, exclude=".*",
                 ),
-                ["rsync", "--rsh=ssh -p 2222", "--exclude=.*",
+                [rsync_executable, "--rsh=ssh -p 2222", "--exclude=.*",
                  "--archive", "--human-readable", "--info=progress2", "--update",
                  "pi:/home/pi/data/", "/cygdrive/e/recordings/"],
             )
             self.assertEqual(
                 rsync_command(Location("C:/data/"), Location("user@backup:/data/"), update=True),
-                ["rsync", "--rsh=ssh ", "--archive", "--human-readable", "--info=progress2", "--update",
+                [rsync_executable, "--rsh=ssh", "--archive", "--human-readable", "--info=progress2", "--update",
                  "/cygdrive/c/data/", "user@backup:/data/"],
             )
             self.assertEqual(
                 rsync_command(Location("E:/data/")),
-                ["rsync", "--rsh=ssh ", "--list-only", "/cygdrive/e/data/"],
+                [rsync_executable, "--rsh=ssh", "--list-only", "/cygdrive/e/data/"],
             )
             self.assertEqual(
                 rsync_command(Location("C:/settings/"), Location("pi:/home/pi/")),
-                ["rsync", "--rsh=ssh ", "--archive", "--human-readable", "--info=progress2",
+                [rsync_executable, "--rsh=ssh", "--archive", "--human-readable", "--info=progress2",
                  "/cygdrive/c/settings/", "pi:/home/pi/"],
             )
+
+    @unittest.skipUnless(os.name == "nt", "requires native Windows paths")
+    def test_windows_rsh_uses_bundled_ssh_and_user_config(self):
+        ssh_executable = Path(__file__).resolve().parents[1] / ".tools" / "cwrsync" / "bin" / "ssh.exe"
+        with patch("locations.Path.home", return_value=Path("C:/Users/Test User")), patch(
+            "locations.Path.is_file", return_value=True
+        ):
+            self.assertEqual(
+                build_rsh_command(2222),
+                f'--rsh="{local_path_for_rsync(ssh_executable)}" '
+                '-F "/cygdrive/c/Users/Test User/.ssh/config" '
+                '-i "/cygdrive/c/Users/Test User/.ssh/id_ed25519" '
+                '-o "UserKnownHostsFile=/cygdrive/c/Users/Test User/.ssh/known_hosts" -p 2222',
+            )
+
+    @unittest.skipUnless(os.name == "nt", "requires native Windows paths")
+    def test_windows_rsh_without_optional_config_or_identity(self):
+        with patch("locations.Path.is_file", return_value=False):
+            command = build_rsh_command(None)
+        self.assertIn("/.tools/cwrsync/bin/ssh.exe", command)
+        self.assertNotIn(" -F ", command)
+        self.assertNotIn(" -i ", command)
+        self.assertIn("UserKnownHostsFile=", command)
 
     @unittest.skipIf(os.name == "nt", "requires POSIX local paths")
     def test_command_with_posix_paths(self):

@@ -10,6 +10,7 @@ from pathlib import Path, PurePosixPath
 
 _WINDOWS_DRIVE = re.compile(r"^[A-Za-z]:")
 _WSL_DRIVE = re.compile(r"^/mnt/[A-Za-z](?:/|$)")
+_CWRSYNC_BIN = Path(__file__).resolve().parent / ".tools" / "cwrsync" / "bin"
 _REMOTE_SPEC = re.compile(
     r"""
     ^(?:(?P<username>[^@/:]+)@)?       # Optional SSH user
@@ -185,9 +186,10 @@ def rsync_command(
 ) -> list[str]:
     """Build an rsync command, converting only its path arguments."""
     port  = get_port([source, destination])
-    rssh = build_rssh_command(port)
+    rsh = build_rsh_command(port)
 
-    command = ["rsync", rssh]
+    rsync_executable = str(_CWRSYNC_BIN / "rsync.exe") if os.name == "nt" else "rsync"
+    command = [rsync_executable, rsh]
     if exclude is not None:
         command.append(f"--exclude={exclude}")
     if destination is None:
@@ -204,11 +206,23 @@ def rsync_command(
     return command
 
 
-def build_rssh_command(port: int|None) -> str:
+def build_rsh_command(port: int|None) -> str:
     """Build the ssh portion of the rsync command."""
-    port_str = f"-p {port}" if port is not None else ""
-    ssh_exec = "ssh"
-    return f"--rsh={ssh_exec} {port_str}"
+    ssh_command = "ssh"
+    if os.name == "nt":
+        ssh_command = f'"{local_path_for_rsync(_CWRSYNC_BIN / "ssh.exe")}"'
+        ssh_files = Path.home() / ".ssh"
+        config = ssh_files / "config"
+        if config.is_file():
+            ssh_command += f' -F "{local_path_for_rsync(config)}"'
+        identity = ssh_files / "id_ed25519"
+        if identity.is_file():
+            ssh_command += f' -i "{local_path_for_rsync(identity)}"'
+        known_hosts = ssh_files / "known_hosts"
+        ssh_command += f' -o "UserKnownHostsFile={local_path_for_rsync(known_hosts)}"'
+    if port is not None:
+        ssh_command += f" -p {port}"
+    return f"--rsh={ssh_command}"
 
 
 def get_port(locations: list[Location | None]) -> int | None:
