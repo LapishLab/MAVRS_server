@@ -55,7 +55,7 @@ def check_other_folders_statuses(folders: Optional[dict[str, Location]] = None) 
 		# Use rsync --list-only to check accessibility without transferring data
 		try:
 			result: CompletedProcess = run(
-				rsync_command(remote_path, list_only=True),
+				rsync_command(remote_path),
 				capture_output=True,
 				timeout=10,
 				check=False

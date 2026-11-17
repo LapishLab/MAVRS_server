@@ -149,7 +149,7 @@ class Location:
             raise ValueError("This location is not a local directory")
         return self.path
 
-    def rsync_arg(self, *, directory: bool = True) -> str:
+    def rsync_arg(self, *, is_file: bool = False) -> str:
         if self.path is None:
             raise ValueError("An rsync path is required")
         if self.host is None:
@@ -158,7 +158,7 @@ class Location:
             hostname = f"[{self.host}]" if ":" in self.host else self.host
             host = f"{self.username}@{hostname}" if self.username else hostname
             argument = f"{host}:{self.path.as_posix()}"
-        if directory and not argument.endswith("/"):
+        if not is_file and not argument.endswith("/"):
             argument += "/"
         return argument
 
@@ -179,28 +179,41 @@ class Location:
 def rsync_command(
     source: Location,
     destination: Location | None = None,
-    *,
     source_is_file: bool = False,
     update: bool = False,
     exclude: str | None = None,
-    list_only: bool = False,
 ) -> list[str]:
     """Build an rsync command, converting only its path arguments."""
-    command = ["rsync"]
-    if list_only:
-        command.append("--list-only")
-    else:
-        command.extend(("--archive", "--human-readable", "--info=progress2"))
-    if update:
-        command.append("--update")
+    port  = get_port([source, destination])
+    rssh = build_rssh_command(port)
+
+    command = ["rsync", rssh]
     if exclude is not None:
         command.append(f"--exclude={exclude}")
-    ports = {location.port for location in (source, destination) if location is not None and location.port is not None}
-    if len(ports) > 1:
-        raise ValueError("An rsync transfer cannot use two different SSH ports")
-    if ports:
-        command.append(f"--rsh=ssh -p {ports.pop()}")
-    command.append(source.rsync_arg(directory=not source_is_file))
+    if destination is None:
+        command.append("--list-only")     
+    else:
+        command.extend(("--archive", "--human-readable", "--info=progress2"))
+        if update:
+            command.append("--update") 
+
+    source_str = source.rsync_arg(is_file=source_is_file)
+    command.append(source_str)
     if destination is not None:
         command.append(destination.rsync_arg())
     return command
+
+
+def build_rssh_command(port: int|None) -> str:
+    """Build the ssh portion of the rsync command."""
+    port_str = f"-p {port}" if port is not None else ""
+    ssh_exec = "ssh"
+    return f"--rsh={ssh_exec} {port_str}"
+
+
+def get_port(locations: list[Location | None]) -> int | None:
+    """Get the port number from the source or destination Location."""
+    for loc in locations:
+        if loc is not None and loc.port is not None:
+            return loc.port
+    return None

@@ -35,22 +35,22 @@ class RsyncPathTests(unittest.TestCase):
                     Location("pi:2222/home/pi/data/"),
                     Location("E:/recordings/"), update=True, exclude=".*",
                 ),
-                ["rsync", "--archive", "--human-readable", "--info=progress2", "--update",
-                 "--exclude=.*", "--rsh=ssh -p 2222",
+                ["rsync", "--rsh=ssh -p 2222", "--exclude=.*",
+                 "--archive", "--human-readable", "--info=progress2", "--update",
                  "pi:/home/pi/data/", "/cygdrive/e/recordings/"],
             )
             self.assertEqual(
                 rsync_command(Location("C:/data/"), Location("user@backup:/data/"), update=True),
-                ["rsync", "--archive", "--human-readable", "--info=progress2", "--update",
+                ["rsync", "--rsh=ssh ", "--archive", "--human-readable", "--info=progress2", "--update",
                  "/cygdrive/c/data/", "user@backup:/data/"],
             )
             self.assertEqual(
-                rsync_command(Location("E:/data/"), list_only=True),
-                ["rsync", "--list-only", "/cygdrive/e/data/"],
+                rsync_command(Location("E:/data/")),
+                ["rsync", "--rsh=ssh ", "--list-only", "/cygdrive/e/data/"],
             )
             self.assertEqual(
                 rsync_command(Location("C:/settings/"), Location("pi:/home/pi/")),
-                ["rsync", "--archive", "--human-readable", "--info=progress2",
+                ["rsync", "--rsh=ssh ", "--archive", "--human-readable", "--info=progress2",
                  "/cygdrive/c/settings/", "pi:/home/pi/"],
             )
 
@@ -58,8 +58,8 @@ class RsyncPathTests(unittest.TestCase):
     def test_command_with_posix_paths(self):
         self.assertEqual(
             rsync_command(Location("pi:2222/recordings"), Location("/data"), update=True),
-            ["rsync", "--archive", "--human-readable", "--info=progress2", "--update",
-             "--rsh=ssh -p 2222", "pi:/recordings/", "/data/"],
+            ["rsync", "--rsh=ssh -p 2222", "--archive", "--human-readable",
+             "--info=progress2", "--update", "pi:/recordings/", "/data/"],
         )
 
     def test_directory_slashes_are_independent_of_config_spelling(self):
