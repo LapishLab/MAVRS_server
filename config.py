@@ -1,4 +1,5 @@
 ENV = "XDG_RUNTIME_DIR=/run/user/$(id -u)"
 UNIT = "mavrs"
 SCRIPT_PATH = "~/MAVRS_pi/startExperiment.py"
+STATUS_SCRIPT_PATH = "~/MAVRS_pi/recording_status.py"
 PYTHON_PATH = "~/MAVRS_pi/.venv/bin/python3"

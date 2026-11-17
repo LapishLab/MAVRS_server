@@ -16,26 +16,26 @@ def stop_process(c: List[Connection]):
 def start_process(c: List[Connection], session: str):
 	print("checking if pis are active")
 
-	for name, status in get_pi_statuses(c).items():
-		if status==PiStatus.UNREACHABLE:
-			logger.warning(f"Aborting: {name} is unreachable")
+	for name, health in get_pi_statuses(c).items():
+		if health.status in (PiStatus.UNREACHABLE, PiStatus.UNKNOWN):
+			logger.warning(f"Aborting: cannot verify recorder state on {name} ({health.summary})")
 			return
-		if status==PiStatus.RUNNING:
-			logger.warning(f"Aborting: {UNIT} is already running on {name}.")
+		if health.status in (PiStatus.RUNNING, PiStatus.STARTING, PiStatus.PARTIAL_FAILURE):
+			logger.warning(f"Aborting: {UNIT} is already active on {name} ({health.summary}).")
 			return
 	pi_cmd = f'{PYTHON_PATH} -u {SCRIPT_PATH} --session {session}'
 	sysemd_cmd = f'{ENV} systemctl --user reset-failed; systemd-run --user --setenv=PYTHONUNBUFFERED=1 --unit={UNIT} {pi_cmd}'
 	run_on_connections(c, sysemd_cmd, warn=True)
 		
 	statuses = get_pi_statuses(c)
-	if all(PiStatus.RUNNING == v for v in statuses.values()):
-		print(f"Started {UNIT} on all Pis")
+	if all(v.status in (PiStatus.RUNNING, PiStatus.STARTING) for v in statuses.values()):
+		print(f"Launched {UNIT} on all Pis; check recorder status for readiness")
 	else:
-		for name, status in statuses.items():
-			if status==PiStatus.UNREACHABLE:
+		for name, health in statuses.items():
+			if health.status==PiStatus.UNREACHABLE:
 				logger.warning(f"{name} is now unreachable")
-			elif status == PiStatus.REACHABLE:
-				logger.warning(f"{name} did not sucessfully start {UNIT}")
+			elif health.status not in (PiStatus.RUNNING, PiStatus.STARTING):
+				logger.warning(f"{name} recorder status: {health.summary}")
 
 def stream_logs(c: Optional[List[Connection]] = None):
 	"""Stream journal logs for `UNIT` from each host.

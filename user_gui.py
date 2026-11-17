@@ -27,7 +27,7 @@ from data_paths import read_data_paths, save_data_paths
 from load_settings import load_pi_connections
 from locations import Location
 from path_config import PI_ADDRESS_FILE, EXPERIMENT_NAMES_FILE, PI_SETTINGS_FILE
-from status_checker import get_pi_statuses, PiStatus, check_other_folders_statuses, RemoteFolderStatus
+from status_checker import get_pi_statuses, PiHealth, PiStatus, check_other_folders_statuses, RemoteFolderStatus
 from terminal_launcher import launch_script_in_terminal
 from transfer_data import copy_to_pi_home
 
@@ -126,7 +126,7 @@ class PiStatusWorker(QObject):
 		"""Continuously fetch real Pi statuses and emit them."""
 		# Initially set statuses to unknown (so something displays while waiting for update)
 		pi_group = load_pi_connections()
-		statuses = {str(c.host): PiStatus.UNKNOWN for c in pi_group}
+		statuses = {str(c.host): PiHealth(PiStatus.UNKNOWN) for c in pi_group}
 		self.statuses_updated.emit(statuses)
 
 		# Start update loop
@@ -692,7 +692,7 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.model.setHeaderData(0, QtCore.Qt.Orientation.Horizontal, "Pi Address")
 		self.model.setHeaderData(1, QtCore.Qt.Orientation.Horizontal, "Status")
 		self.tree.setModel(self.model)
-		self.tree.setRootIsDecorated(False)
+		self.tree.setRootIsDecorated(True)
 		layout.addWidget(self.tree)
 
 		# set equal initial column widths for the main tree and allow interactive resizing
@@ -747,18 +747,40 @@ class MainWindow(QtWidgets.QMainWindow):
 
 	@Slot(dict)
 	def update_statuses(self, statuses: dict) -> None:
+		expanded_hosts = {
+			self.model.item(row, 0).text()
+			for row in range(self.model.rowCount())
+			if self.tree.isExpanded(self.model.index(row, 0))
+		}
 		self.model.removeRows(0, self.model.rowCount())
-		for host, status in statuses.items():
+		for host, health in statuses.items():
 			host_item = QStandardItem(host)
-			status_item = QStandardItem(status.value)
+			status_item = QStandardItem(health.summary)
 			# color by status (compare against PiStatus enum)
-			if status == PiStatus.RUNNING:
+			if health.status == PiStatus.RUNNING:
 				status_item.setForeground(QtGui.QBrush(QtGui.QColor("turquoise")))
-			elif status == PiStatus.REACHABLE:
+			elif health.status == PiStatus.STOPPED:
 				status_item.setForeground(QtGui.QBrush(QtGui.QColor("green")))
+			elif health.status in (PiStatus.STARTING, PiStatus.PARTIAL_FAILURE, PiStatus.UNKNOWN):
+				status_item.setForeground(QtGui.QBrush(QtGui.QColor("orange")))
 			else:
 				status_item.setForeground(QtGui.QBrush(QtGui.QColor("red")))
 			self.model.appendRow([host_item, status_item])
+			for component, detail in health.components.items():
+				component_item = QStandardItem(component)
+				component_status = QStandardItem(detail["state"])
+				if detail["state"] in ("failed", "stopped"):
+					component_status.setForeground(QtGui.QBrush(QtGui.QColor("red")))
+					reason = detail.get("reason")
+					exit_code = detail.get("exit_code")
+					component_status.setToolTip(f"{reason or 'Recorder exited'}; exit code: {exit_code}")
+				elif detail["state"] == "starting":
+					component_status.setForeground(QtGui.QBrush(QtGui.QColor("orange")))
+				else:
+					component_status.setForeground(QtGui.QBrush(QtGui.QColor("turquoise")))
+				host_item.appendRow([component_item, component_status])
+			if host in expanded_hosts:
+				self.tree.expand(self.model.index(self.model.rowCount() - 1, 0))
 
 	def update_folder_statuses(self, folder_statuses: dict) -> None:
 		self.other_model.removeRows(0, self.other_model.rowCount())
@@ -775,6 +797,8 @@ class MainWindow(QtWidgets.QMainWindow):
 			self.other_model.appendRow([folder_item, status_item])
 
 	def open_log_stream(self, index: QtCore.QModelIndex) -> None:
+		if index.parent().isValid():
+			index = index.parent()
 		host = self.model.item(index.row(), 0).text()
 		if host in self.log_windows:
 			self.log_windows[host].raise_()

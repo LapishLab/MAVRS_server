@@ -1,10 +1,12 @@
+import json
 import time
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, Dict, Optional
 from subprocess import run, CompletedProcess
 
 from load_settings import load_pi_connections, other_folders_save_root
-from config import ENV, UNIT
+from config import ENV, UNIT, PYTHON_PATH, STATUS_SCRIPT_PATH
 from fabric_tools import run_on_connections
 from fabric import Connection
 from locations import rsync_command
@@ -12,9 +14,27 @@ from locations import Location
 
 class PiStatus(Enum):
 	UNREACHABLE = "unreachable"
-	REACHABLE = "reachable"
-	RUNNING = "running"
+	STOPPED = "stopped"
+	RUNNING = "recording"
+	STARTING = "starting"
+	PARTIAL_FAILURE = "partial failure"
+	FAILED = "failed"
 	UNKNOWN = "unknown"
+
+
+@dataclass(frozen=True)
+class PiHealth:
+	status: PiStatus
+	components: dict[str, dict] = field(default_factory=dict)
+	session: str | None = None
+
+	@property
+	def summary(self) -> str:
+		if self.status == PiStatus.PARTIAL_FAILURE:
+			failed = [name for name, detail in self.components.items()
+			          if detail.get("state") == "failed"]
+			return f"partial failure: {', '.join(failed)}" if failed else self.status.value
+		return self.status.value
 
 class RemoteFolderStatus(Enum):
 	UNREACHABLE = "unreachable"
@@ -23,25 +43,37 @@ class RemoteFolderStatus(Enum):
 	UNKNOWN_ERROR = "unknown error"
 
 
-def get_pi_statuses(pi_group: Optional[List[Connection]] = None) -> Dict[str, PiStatus]:
+def get_pi_statuses(pi_group: Optional[List[Connection]] = None) -> Dict[str, PiHealth]:
 	auto_close = False
 	if pi_group is None:
 		pi_group = load_pi_connections()
 		auto_close = True #If we automatically open, then we should also close
-	results = run_on_connections(pi_group, f"{ENV} systemctl --user is-active {UNIT}.service", warn=True, hide=True, timeout=3)
-	statuses = [result_2_status(r) for r in results]
-	names = [str(c.host) for c in pi_group]
-	if auto_close:
-		[c.close() for c in pi_group] # close to avoid memory leak
-	return dict(zip(names, statuses)) 
+	try:
+		command = f"{ENV} {PYTHON_PATH} {STATUS_SCRIPT_PATH} --unit {UNIT}"
+		results = run_on_connections(pi_group, command, warn=True, hide=True, timeout=5)
+		return {str(connection.host): result_2_status(result)
+		        for connection, result in zip(pi_group, results)}
+	finally:
+		if auto_close:
+			for connection in pi_group:
+				connection.close()
 
-def result_2_status(result):  
+def result_2_status(result) -> PiHealth:
 	if isinstance(result, BaseException):
-		return PiStatus.UNREACHABLE
-	if getattr(result, "stdout", "").strip() == "active":
-		return PiStatus.RUNNING
-	else:
-		return PiStatus.REACHABLE
+		return PiHealth(PiStatus.UNREACHABLE)
+	if getattr(result, "exited", 0) != 0:
+		return PiHealth(PiStatus.UNKNOWN)
+	try:
+		report = json.loads(result.stdout)
+		status = PiStatus(report["state"].replace("_", " "))
+		components = report.get("components", {})
+		if (not isinstance(components, dict)
+		    or any(not isinstance(detail, dict) or detail.get("state") not in
+		           ("starting", "recording", "failed", "stopped") for detail in components.values())):
+			raise ValueError("Invalid component status")
+		return PiHealth(status, components, report.get("session"))
+	except (AttributeError, KeyError, TypeError, ValueError):
+		return PiHealth(PiStatus.UNKNOWN)
 	
 
 def check_other_folders_statuses(folders: Optional[dict[str, Location]] = None) -> Dict[str, RemoteFolderStatus]:
@@ -80,8 +112,10 @@ def stream_statuses(interval: int = 5) -> None:
 	while True:
 		print('--- Pi Statuses ---')
 		statuses = get_pi_statuses()
-		for name, status in statuses.items():
-			print(f'{name}: {status.value}')
+		for name, health in statuses.items():
+			print(f'{name}: {health.summary}')
+			for component, detail in health.components.items():
+				print(f'  {component}: {detail["state"]}')
 		
 		print('--- Other Folder Statuses ---')
 		statuses = check_other_folders_statuses()

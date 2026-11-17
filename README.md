@@ -1,6 +1,20 @@
 # MAVRS_server
  Modular audio and video recording system for rat behavior. Code for DHCP server.
 
+## Recorder status
+
+The GUI shows each Pi as recording, starting, partially failed, failed,
+stopped, unreachable, or unknown. Expand a Pi row to see the enabled GPIO,
+Audio, and Video recorder states. A partial failure names the failed recorder;
+healthy recorders continue until the experiment is stopped. Double-click a Pi
+or component row to open that Pi's journal log. `python status_checker.py`
+prints the same status at the command line.
+
+Deploy the matching `MAVRS_pi` code to each Pi before using this server status
+checker. An older Pi without `recording_status.py` appears as unknown. Status
+checks detect a recorder that exits or fails to become ready within 60 seconds;
+they do not detect a live process that has stopped producing useful data.
+
 On first launch, MAVRS creates `~/MAVRS_settings` and copies the missing
 `settings.yaml`, `pi_addresses.txt`, `experiment_names.txt`, and
 `mavrs_pi_config.yaml` files from `setup/config_templates`. Existing files are
