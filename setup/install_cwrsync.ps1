@@ -9,6 +9,7 @@ $repository = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $toolsDirectory = Join-Path $repository '.tools'
 $installDirectory = Join-Path $toolsDirectory 'cwrsync'
 $versionFile = Join-Path $installDirectory '.version'
+$cacheScript = Join-Path $PSScriptRoot 'cache_cwrsync_accounts.ps1'
 
 if (Test-Path -LiteralPath $installDirectory) {
     if ((Test-Path -LiteralPath $versionFile) -and
@@ -16,6 +17,7 @@ if (Test-Path -LiteralPath $installDirectory) {
         (Test-Path -LiteralPath (Join-Path $installDirectory 'bin\rsync.exe')) -and
         (Test-Path -LiteralPath (Join-Path $installDirectory 'bin\ssh.exe'))) {
         Write-Host "cwRsync $version is already installed at $installDirectory"
+        & $cacheScript
         exit 0
     }
     throw "An existing cwRsync directory needs review before installation: $installDirectory"
@@ -66,3 +68,5 @@ try {
 finally {
     Remove-Item -LiteralPath $stagingDirectory -Recurse -Force
 }
+
+& $cacheScript

@@ -41,6 +41,13 @@ slash. Remote `user@host:/path` settings retain their host and Linux directory
 path. Paths such as `/mnt/c/data/` are for WSL and must be changed to `C:/data/`
 when running native Windows Python. Linux paths are unchanged.
 
+On a Windows domain account, cwRsync may pause while looking up account groups.
+The installer also caches the current account and groups under
+`.tools/cwrsync/etc`. When MAVRS starts, it checks the signed-in Windows account
+and group IDs and refreshes the cache if they changed. Normal checks are quick;
+a refresh can take a few minutes. The cache is local to this machine and is not
+committed to the repository.
+
 Pi addresses use `[user@]host[:port]`, for example `pi@camera.local` or
 `pi@camera.local:2222`. They default to `~/MAVRS_pi/data` for the
 recording directory; an explicit path such as `pi@camera.local:/custom/data`

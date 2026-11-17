@@ -1,8 +1,10 @@
 """Parse local and remote locations and format them for rsync."""
 
 import ipaddress
+import logging
 import os
 import re
+import subprocess
 from copy import copy
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -11,6 +13,27 @@ from pathlib import Path, PurePosixPath
 _WINDOWS_DRIVE = re.compile(r"^[A-Za-z]:")
 _WSL_DRIVE = re.compile(r"^/mnt/[A-Za-z](?:/|$)")
 _CWRSYNC_BIN = Path(__file__).resolve().parent / ".tools" / "cwrsync" / "bin"
+
+
+def _refresh_cwrsync_accounts() -> None:
+    """Refresh the local account cache when the Windows login changes."""
+    if os.name != "nt" or not (_CWRSYNC_BIN / "rsync.exe").is_file():
+        return
+    script = Path(__file__).resolve().parent / "setup" / "cache_cwrsync_accounts.ps1"
+    try:
+        result = subprocess.run(
+            ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script)],
+            capture_output=True, text=True, check=False,
+        )
+    except OSError as exc:
+        logging.warning("Could not check the cwRsync account cache: %s", exc)
+        return
+    if result.returncode != 0:
+        logging.warning("Could not refresh the cwRsync account cache: %s", result.stderr.strip())
+
+
+_refresh_cwrsync_accounts()
+
 _REMOTE_SPEC = re.compile(
     r"""
     ^(?:(?P<username>[^@/:]+)@)?       # Optional SSH user
