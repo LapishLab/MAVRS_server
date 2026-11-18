@@ -1,11 +1,38 @@
 #!/usr/bin/env python3
-from load_settings import load_pi_connections
+import logging
+from os.path import expanduser
+from subprocess import run
+
+from load_settings import load_pi_connections, load_settings, Settings
 import transfer_data
 from pi_sysemd import stop_process
 
-def main() -> None:
+logger = logging.getLogger(__name__)
+
+def main() -> bool:
 	stop_pis()
-	transfer_data.main()
+	settings = load_settings()
+	transfers_ok = transfer_data.main(settings)
+	scripts_ok = run_post_session_scripts(settings)
+	return transfers_ok and scripts_ok
+
+def run_post_session_scripts(settings: Settings) -> bool:
+	"""Run labeled commands in order, inheriting this terminal's output streams."""
+	all_succeeded = True
+	data_directory = str(settings.local_data_path.local_path)
+	for label, command in settings.post_session_scripts.items():
+		arguments = [expanduser(part.replace("{local_data_directory}", data_directory)) for part in command]
+		print(f"Running post-session script: {label}", flush=True)
+		try:
+			result = run(arguments, check=False)
+		except OSError as exc:
+			logger.warning("Could not run post-session script %s: %s", label, exc)
+			all_succeeded = False
+			continue
+		if result.returncode != 0:
+			logger.warning("Post-session script %s exited with status %s", label, result.returncode)
+			all_succeeded = False
+	return all_succeeded
 
 def stop_pis() -> None:
 	print("stopping Pi recordings")
@@ -14,4 +41,4 @@ def stop_pis() -> None:
 	stop_process(pis)
 
 if __name__ == "__main__":
-	main()
+	raise SystemExit(0 if main() else 1)

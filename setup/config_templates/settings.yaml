@@ -7,4 +7,5 @@
         anymaze:
         med_pc: "lapishla@10.0.0.1:/AUTO_med/"
     suggested_name_format: "%date%_%time%_%experiment%_rat%input{rat number}%"
+    post_session_scripts: {}
 

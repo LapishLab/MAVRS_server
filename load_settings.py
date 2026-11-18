@@ -2,7 +2,7 @@
 import yaml 
 from pathlib import Path
 from typing import Dict, Optional, List, Union
-from pydantic import BaseModel, ValidationInfo, field_validator
+from pydantic import BaseModel, Field, ValidationInfo, field_validator
 from path_config import EXPERIMENT_NAMES_FILE, PI_ADDRESS_FILE, SETTINGS_FILE
 from fabric import Config, Connection
 from locations import Location
@@ -19,8 +19,19 @@ class PiConnection(Connection):
 class Settings(BaseModel):
 	local_data_path: Location
 	other_folders: Dict[str, Optional[Location]] = {}
+	post_session_scripts: Dict[str, List[str]] = Field(default_factory=dict)
 	suggested_name_format: str = "%date%_%time%_%experiment%_rat%input{rat number}%"
 	backup_data_path: Optional[Location]
+
+	@field_validator("post_session_scripts")
+	@classmethod
+	def require_commands(cls, scripts: Dict[str, List[str]]) -> Dict[str, List[str]]:
+		for label, command in scripts.items():
+			if not label.strip():
+				raise ValueError("post_session_scripts labels cannot be blank")
+			if not command or not command[0].strip():
+				raise ValueError(f"post_session_scripts entry {label!r} needs an executable")
+		return scripts
 
 	@field_validator("local_data_path", "backup_data_path", mode="before")
 	@classmethod

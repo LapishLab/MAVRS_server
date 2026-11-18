@@ -55,6 +55,34 @@ slash. Remote `user@host:/path` settings retain their host and Linux directory
 path. Paths such as `/mnt/c/data/` are for WSL and must be changed to `C:/data/`
 when running native Windows Python. Linux paths are unchanged.
 
+## Post-session scripts
+
+Add labeled command lists to `post_session_scripts` in
+`~/MAVRS_settings/settings.yaml`. These commands run when stopping an
+experiment, after its data collection finishes. Running `transfer_data.py`
+directly only collects data. For example, to run `med_handling` with its own
+virtual environment:
+
+```yaml
+post_session_scripts:
+  Med:
+    - '~/Documents/GitHub/med_handling/.venv/Scripts/python.exe'
+    - '~/Documents/GitHub/med_handling/handling.py'
+    - '{local_data_directory}'
+```
+
+The first item is the executable; the rest are separate arguments. Commands
+can run any local program. Use forward slashes or single-quoted backslash
+paths in Windows YAML. `{local_data_directory}` is replaced with the configured
+local data path as a single argument, including paths with spaces. A leading
+`~` in any command item expands to the current user's home directory. Commands run
+in settings order, and their stdout and stderr print in the transfer terminal.
+They inherit MAVRS's working directory. A failed command is reported and does
+not prevent later commands from running. Commands also run after a transfer or
+Pi cleanup failure, once all transfer attempts have finished; check the
+transfer warnings before relying on the collected data. Existing settings
+files can omit this field; the default is an empty mapping.
+
 On a Windows domain account, cwRsync may pause while looking up account groups.
 The installer also caches the current account and groups under
 `.tools/cwrsync/etc`. When MAVRS starts, it checks the signed-in Windows account
