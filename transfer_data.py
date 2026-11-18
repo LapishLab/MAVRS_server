@@ -14,11 +14,13 @@ from transfer_cleanup import cleanup_pi
 logger = logging.getLogger(__name__)
 progress_lock = Lock()
 
-def main() -> None:
-	settings = load_settings()
+def main(settings: Settings | None = None) -> bool:
+	settings = settings or load_settings()
+	folders_ok = True
 	if settings.other_folders:
-		get_remote_folders(settings)
-	transfer_pis(settings)
+		folders_ok = get_remote_folders(settings)
+	pis_ok = transfer_pis(settings)
+	return folders_ok and pis_ok
 	
 def copy_to_pi_home(pis: list[Location] | None = None) -> list[tuple[Location, str | None]]:
 	print("Copying settings to the Pi")
@@ -81,7 +83,7 @@ def transfer_pi(fullname: Location, server_path: Location) -> tuple[str, str | N
 		return pi, port, False, str(exc)
 
 
-def transfer_pis(settings: Settings) -> None:
+def transfer_pis(settings: Settings) -> bool:
 	print("Copying data from Pi")
 
 	pi_names = load_pi_addresses()
@@ -89,7 +91,7 @@ def transfer_pis(settings: Settings) -> None:
 
 	if not pi_names:
 		print("No Pis configured for transfer")
-		return
+		return True
 	with ThreadPoolExecutor(max_workers=len(pi_names)) as executor:
 		futures = {executor.submit(transfer_pi, name, server_path): name for name in pi_names}
 		results = {futures[future]: future.result() for future in as_completed(futures)}
@@ -113,6 +115,7 @@ def transfer_pis(settings: Settings) -> None:
 			f"\nAll Pi transfers and cleanup completed"
 			f'\n------------------------'
 			)
+		return True
 	else:
 		print(
 			f"\n----WARNING!!----"
@@ -121,10 +124,12 @@ def transfer_pis(settings: Settings) -> None:
 			f'\nCheck these Pis before manually deleting data'
 			f'\n------------------------'
 			)
+		return False
 
-def get_remote_folders(settings: Settings) -> None:
+def get_remote_folders(settings: Settings) -> bool:
 	local_data = settings.local_data_path
 	folders = other_folders_save_root(settings)
+	all_succeeded = True
 	for label, remote_path in folders.items():
 		if remote_path == local_data: #Skip transfer if already saved in local path
 			continue
@@ -136,6 +141,8 @@ def get_remote_folders(settings: Settings) -> None:
 			success, output = False, str(exc)
 		if not success:
 			logger.warning('Failed to copy %s data from %s\n%s', label, remote_path, output)
+			all_succeeded = False
+	return all_succeeded
 
 if __name__ == "__main__":
-	main()
+	raise SystemExit(0 if main() else 1)
