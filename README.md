@@ -83,6 +83,26 @@ Pi cleanup failure, once all transfer attempts have finished; check the
 transfer warnings before relying on the collected data. Existing settings
 files can omit this field; the default is an empty mapping.
 
+## Video timestamp repair after stopping
+
+After transfer attempts, **Stop Experiment** runs the bundled
+`video_repair.repair_directory` on `local_data_path`, before the configured
+post-session commands. It examines every `.mp4` below that directory, repairs
+each video in place using its matching `.pts` camera timestamps, and skips
+videos already marked by a matching `.pts.bak` file. The repair prints progress
+in the stop terminal and writes `repair_report.csv` in the local data directory.
+Per-video errors are appended to `repair_error.log`; other videos and
+post-session commands still run. Any repair failure gives the stop command a
+failure exit status.
+
+Successful repair replaces the original MP4 and `.pts` files. The original
+`.pts` is saved beside the video as `.pts.bak`, and original packet timestamps
+are saved as `.mp4.timestamps.csv.bak`; the original MP4 bytes are not kept.
+The repair accepts single-stream H.264 videos without B-frames. It changes
+frame order when camera timestamps are out of order, so frame-indexed labels
+made before repair may need remapping. Repair runs after recording has stopped
+and does not change capture timing or the Pi clock.
+
 On a Windows domain account, cwRsync may pause while looking up account groups.
 The installer also caches the current account and groups under
 `.tools/cwrsync/etc`. When MAVRS starts, it checks the signed-in Windows account

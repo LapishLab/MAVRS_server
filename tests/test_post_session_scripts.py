@@ -67,19 +67,34 @@ class PostSessionScriptTests(unittest.TestCase):
         with patch("stop_experiment.stop_pis", side_effect=lambda: events.append("stop")), patch(
             "stop_experiment.load_settings", return_value=settings
         ), patch("stop_experiment.transfer_data.main", side_effect=lambda _: events.append("transfer") or True), patch(
+            "stop_experiment.repair_directory", side_effect=lambda _: events.append("repair") or 0
+        ), patch(
             "stop_experiment.run_post_session_scripts", side_effect=lambda _: events.append("scripts") or True
         ), patch("builtins.print"):
             self.assertTrue(stop_main())
-        self.assertEqual(events, ["stop", "transfer", "scripts"])
+        self.assertEqual(events, ["stop", "transfer", "repair", "scripts"])
 
         events.clear()
         with patch("stop_experiment.stop_pis", side_effect=lambda: events.append("stop")), patch(
             "stop_experiment.load_settings", return_value=settings
         ), patch("stop_experiment.transfer_data.main", side_effect=lambda _: events.append("transfer") or False), patch(
+            "stop_experiment.repair_directory", side_effect=lambda _: events.append("repair") or 0
+        ), patch(
             "stop_experiment.run_post_session_scripts", side_effect=lambda _: events.append("scripts") or True
         ), patch("builtins.print"):
             self.assertFalse(stop_main())
-        self.assertEqual(events, ["stop", "transfer", "scripts"])
+        self.assertEqual(events, ["stop", "transfer", "repair", "scripts"])
+
+    def test_repair_failures_keep_exit_status_failed_without_skipping_commands(self):
+        settings = self.settings({"Med": ["python", "handling.py"]})
+        with patch("stop_experiment.stop_pis"), patch("stop_experiment.load_settings", return_value=settings), patch(
+            "stop_experiment.transfer_data.main", return_value=True
+        ), patch("stop_experiment.repair_directory", return_value=1) as repair, patch(
+            "stop_experiment.run_post_session_scripts", return_value=True
+        ) as scripts:
+            self.assertFalse(stop_main())
+        repair.assert_called_once_with(settings.local_data_path.local_path)
+        scripts.assert_called_once_with(settings)
 
     def test_direct_transfer_does_not_run_scripts(self):
         settings = self.settings({"Med": ["python", "handling.py"]}, {"ephys": None})

@@ -6,6 +6,7 @@ from subprocess import run
 from load_settings import load_pi_connections, load_settings, Settings
 import transfer_data
 from pi_sysemd import stop_process
+from video_repair import repair_directory
 
 logger = logging.getLogger(__name__)
 
@@ -13,8 +14,14 @@ def main() -> bool:
 	stop_pis()
 	settings = load_settings()
 	transfers_ok = transfer_data.main(settings)
+	try:
+		failed_repairs = repair_directory(settings.local_data_path.local_path)
+		repair_ok = failed_repairs == 0
+	except Exception as exc:
+		logger.warning("Video repair failed: %s", exc)
+		repair_ok = False
 	scripts_ok = run_post_session_scripts(settings)
-	return transfers_ok and scripts_ok
+	return transfers_ok and repair_ok and scripts_ok
 
 def run_post_session_scripts(settings: Settings) -> bool:
 	"""Run labeled commands in order, inheriting this terminal's output streams."""
