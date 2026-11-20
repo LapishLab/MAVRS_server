@@ -206,6 +206,7 @@ def rsync_command(
     source_is_file: bool = False,
     update: bool = False,
     exclude: str | None = None,
+    summarize_files: bool = False,
 ) -> list[str]:
     """Build an rsync command, converting only its path arguments."""
     port  = get_port([source, destination])
@@ -218,7 +219,11 @@ def rsync_command(
     if destination is None:
         command.append("--list-only")     
     else:
-        command.extend(("--archive", "--human-readable", "--info=progress2"))
+        command.extend(("--archive", "--human-readable"))
+        if summarize_files:
+            command.extend(("--out-format=%i %b", "--outbuf=L"))
+        else:
+            command.append("--info=progress2")
         if update:
             command.append("--update") 
 

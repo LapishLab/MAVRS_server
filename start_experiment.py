@@ -76,7 +76,7 @@ def get_session_name(settings: Settings) -> str:
 			val = input(f"Enter {label}: ")
 			suggested = sub(input_pattern, val, suggested, count=1)
 
-		logger.info("Suggested session name: %s", suggested)
+		print(f"Suggested session name: {suggested}")
 		response = input('If the above name is correct, hit enter. If incorrect, type "n" to restart selection: ')
 		if not response == "n":
 			return suggested
@@ -85,9 +85,9 @@ def choose_experiment_from_file() -> str:
 	lines = load_experiment_names()
 
 	while True:
-		logger.info("Select an experiment name:")
+		print("Select an experiment name:")
 		for index, line in enumerate(lines, start=1):
-			logger.info("%s. %s", index, line.strip())
+			print(f"{index}. {line.strip()}")
 		choice = input("\nEnter number or hit enter to choose #1: ") or "1"
 
 		if choice.isdigit():

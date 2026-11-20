@@ -2,9 +2,8 @@
 from subprocess import run, Popen, PIPE, STDOUT
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import deque
-import codecs
-import os
 import logging
+from threading import Event, Lock, Thread
 from load_settings import load_settings, load_pi_addresses, Settings, other_folders_save_root
 from path_config import PI_SETTINGS_FILE
 from locations import Location, rsync_command
@@ -12,6 +11,16 @@ from transfer_cleanup import cleanup_pi
 from console_logging import configure_logging
 
 logger = logging.getLogger(__name__)
+PROGRESS_INTERVAL_SECONDS = 30
+
+
+def _format_bytes(size: int) -> str:
+	amount = float(size)
+	for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
+		if amount < 1024 or unit == "TiB":
+			return f"{int(amount)} {unit}" if unit == "B" else f"{amount:.1f} {unit}"
+		amount /= 1024
+	raise AssertionError("unreachable")
 
 def main(settings: Settings | None = None) -> bool:
 	settings = settings or load_settings()
@@ -48,30 +57,54 @@ def copy_to_pi_home(pis: list[Location] | None = None) -> list[tuple[Location, s
 	return results
 
 def stream_rsync(cmd: list[str], label: str) -> tuple[bool, str]:
-	proc = Popen(cmd, stdout=PIPE, stderr=STDOUT)
+	proc = Popen(cmd, stdout=PIPE, stderr=STDOUT, text=True, encoding="utf-8", errors="replace", bufsize=1)
 	assert proc.stdout is not None
-	decoder = codecs.getincrementaldecoder("utf-8")("replace")
-	pending = ""
 	recent = deque(maxlen=20)
-	while chunk := os.read(proc.stdout.fileno(), 4096):
-		pending += decoder.decode(chunk)
-		parts = pending.replace("\r", "\n").split("\n")
-		pending = parts.pop()
-		for line in parts:
-			if line.strip():
+	files_completed = 0
+	bytes_transferred = 0
+	progress_lock = Lock()
+	stop_reporting = Event()
+
+	def report_progress() -> None:
+		while not stop_reporting.wait(PROGRESS_INTERVAL_SECONDS):
+			with progress_lock:
+				files, size = files_completed, bytes_transferred
+			logger.info("[%s] Transferring: %s files completed, %s transferred", label, files, _format_bytes(size))
+
+	reporter = Thread(target=report_progress, daemon=True)
+	reporter.start()
+	try:
+		for raw_line in proc.stdout:
+			line = raw_line.strip()
+			if not line:
+				continue
+			item, separator, size = line.rpartition(" ")
+			if separator and len(item) == 11 and item[1] in "fdLDS" and size.isdecimal():
+				# The %b record arrives when a file finishes; directories are not counted.
+				if item.startswith((">f", "<f")):
+					with progress_lock:
+						files_completed += 1
+						bytes_transferred += int(size)
+			else:
 				recent.append(line)
-				logger.info("[%s] %s", label, line)
-	pending += decoder.decode(b"", final=True)
-	if pending.strip():
-		recent.append(pending)
-		logger.info("[%s] %s", label, pending)
-	return proc.wait() == 0, "\n".join(recent)
+				logger.warning("[%s] %s", label, line)
+	finally:
+		stop_reporting.set()
+		reporter.join()
+		proc.stdout.close()
+
+	returncode = proc.wait()
+	output = "\n".join(recent)
+	if returncode == 0:
+		logger.info("[%s] Transfer complete: %s files, %s transferred", label, files_completed, _format_bytes(bytes_transferred))
+		return True, output
+	return False, output or f"rsync exited with code {returncode}"
 
 def transfer_pi(fullname: Location, server_path: Location) -> tuple[str, str | None, bool, str]:
 	pi, port = fullname.ssh_host, str(fullname.port) if fullname.port is not None else None
 	cmd = rsync_command(
 		fullname, server_path,
-		update=True, exclude=".*",
+		update=True, exclude=".*", summarize_files=True,
 	)
 	try:
 		success, output = stream_rsync(cmd, str(fullname))
@@ -121,7 +154,7 @@ def get_remote_folders(settings: Settings) -> bool:
 		if remote_path == local_data: #Skip transfer if already saved in local path
 			continue
 		logger.info("Getting %s folder", label)
-		cmd = rsync_command(remote_path, local_data, update=True)
+		cmd = rsync_command(remote_path, local_data, update=True, summarize_files=True)
 		try:
 			success, output = stream_rsync(cmd, label)
 		except OSError as exc:

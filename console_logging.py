@@ -6,3 +6,4 @@ import sys
 
 def configure_logging() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s", stream=sys.stdout)
+    logging.getLogger("paramiko").setLevel(logging.WARNING)
