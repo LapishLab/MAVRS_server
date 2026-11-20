@@ -10,9 +10,18 @@ from console_logging import configure_logging
 logger = logging.getLogger(__name__)
 
 def stop_process(c: List[Connection]):
-	logger.info("Sending stop command to Pis")
-	run_on_connections(c, f"{ENV} systemctl --user stop {UNIT}.service", warn=True)
-	logger.info("Stop command sent to Pis")
+	logger.info("Stopping Pi recordings")
+	results = run_on_connections(c, f"{ENV} systemctl --user stop {UNIT}.service", warn=True, hide=True)
+	for connection, result in zip(c, results):
+		if isinstance(result, Exception):
+			logger.warning("Could not stop %s on %s: %s", UNIT, connection.host, result)
+			continue
+		if result.exited == 0:
+			continue
+		error = (result.stderr or result.stdout or "").strip()
+		if error == f"Failed to stop {UNIT}.service: Unit {UNIT}.service not loaded.":
+			continue
+		logger.warning("Could not stop %s on %s: %s", UNIT, connection.host, error or f"exit status {result.exited}")
 
 def start_process(c: List[Connection], session: str):
 	logger.info("Checking if Pis are active")

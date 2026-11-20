@@ -12,7 +12,8 @@ from console_logging import configure_logging
 logger = logging.getLogger(__name__)
 
 def main() -> bool:
-	stop_pis()
+	pis = load_pi_connections()
+	stop_process(pis)
 	settings = load_settings()
 	transfers_ok = transfer_data.main(settings)
 	try:
@@ -41,12 +42,6 @@ def run_post_session_scripts(settings: Settings) -> bool:
 			logger.warning("Post-session script %s exited with status %s", label, result.returncode)
 			all_succeeded = False
 	return all_succeeded
-
-def stop_pis() -> None:
-	logger.info("Stopping Pi recordings")
-	logger.info("Loading Pi connections")
-	pis = load_pi_connections()
-	stop_process(pis)
 
 if __name__ == "__main__":
 	configure_logging()
