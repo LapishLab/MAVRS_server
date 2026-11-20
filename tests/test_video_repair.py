@@ -1,11 +1,9 @@
 """Dry-run repair reports damaged timestamp files without changing inputs."""
 
 import csv
-import io
 import os
 import tempfile
 import unittest
-from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
@@ -201,17 +199,16 @@ class RepairDryRunTest(unittest.TestCase):
             self.assertEqual(rows["good.mp4"]["count"], "1")
             self.assertEqual(rows["bad.mp4"]["status"], "failed")
 
-    def test_directory_can_print_without_saving_report(self) -> None:
+    def test_directory_can_log_without_saving_report(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            output = io.StringIO()
-            with redirect_stdout(output):
+            with self.assertLogs("video_repair", level="INFO") as logs:
                 self.assertEqual(repair_directory(root, dry_run=True, save_report=False), 0)
-            self.assertIn("Found 0 out-of-order frames across 0 videos", output.getvalue())
+            self.assertIn("Found 0 out-of-order frames across 0 videos", "\n".join(logs.output))
             self.assertFalse((root / "repair_report.csv").exists())
             self.assertFalse((root / "repair_error.log").exists())
 
-    def test_directory_prints_positive_counts_and_saves_all_rows(self) -> None:
+    def test_directory_logs_positive_counts_and_saves_all_rows(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for name in ("zero", "one", "two", "failed", "skipped", "report_only"):
@@ -224,10 +221,10 @@ class RepairDryRunTest(unittest.TestCase):
                     raise ValueError("bad timestamps")
                 return {"zero": 0, "one": 1, "two": 2, "report_only": 0}[video.stem]
 
-            output = io.StringIO()
             with patch("video_repair.repair_video", side_effect=fake_repair):
-                with redirect_stdout(output):
+                with self.assertLogs("video_repair", level="INFO") as logs:
                     repair_directory(root)
+            output = "\n".join(logs.output)
 
             with (root / "repair_report.csv").open(newline="", encoding="utf-8") as handle:
                 rows = {row["video"]: row for row in csv.DictReader(handle)}
@@ -241,16 +238,16 @@ class RepairDryRunTest(unittest.TestCase):
             self.assertEqual(rows["skipped.mp4"]["status"], "already_repaired")
             self.assertEqual(rows["skipped.mp4"]["count"], "")
             self.assertEqual(rows["report_only.mp4"]["status"], "repaired")
-            self.assertIn("repaired: 4", output.getvalue())
-            self.assertIn("already_repaired: 1", output.getvalue())
-            self.assertIn("failed: 1", output.getvalue())
-            self.assertIn("Found 3 out-of-order frames across 2 videos", output.getvalue())
+            self.assertIn("repaired: 4", output)
+            self.assertIn("already_repaired: 1", output)
+            self.assertIn("failed: 1", output)
+            self.assertIn("Found 3 out-of-order frames across 2 videos", output)
             self.assertEqual(
-                output.getvalue().count(":completed:"),
+                output.count(":completed:"),
                 4,
             )
-            self.assertIn("2/6:completed:", output.getvalue())
-            self.assertIn("6/6:completed:", output.getvalue())
-            self.assertRegex(output.getvalue(), r"(?m)^\s*one\.mp4\s+1\s*$")
-            self.assertRegex(output.getvalue(), r"(?m)^\s*two\.mp4\s+2\s*$")
-            self.assertNotRegex(output.getvalue(), r"(?m)^\s*zero\.mp4\s+0\s*$")
+            self.assertIn("2/6:completed:", output)
+            self.assertIn("6/6:completed:", output)
+            self.assertRegex(output, r"(?m)one\.mp4\s+1\s*$")
+            self.assertRegex(output, r"(?m)^\s*two\.mp4\s+2\s*$")
+            self.assertNotRegex(output, r"(?m)zero\.mp4\s+0\s*$")

@@ -1,4 +1,5 @@
 from subprocess import run
+import logging
 from datetime import datetime
 from load_settings import load_pi_connections, load_settings, load_experiment_names, Settings, other_folders_save_root
 from pathlib import Path
@@ -10,6 +11,9 @@ from fabric_tools import run_on_connections
 from typing import Optional, List
 from fabric import Connection
 from locations import Location, rsync_command
+from console_logging import configure_logging
+
+logger = logging.getLogger(__name__)
 
 def main() -> None:
 	pis = load_pi_connections()
@@ -19,7 +23,7 @@ def main() -> None:
 		return
 	input("Hit enter when ready to start Pi recording")
 	
-	print(f"Starting Pi recordings: {session}")
+	logger.info("Starting Pi recordings: %s", session)
 	if settings.other_folders:
 		pi_session =  f"{session}/pi-data_{session}"
 	else:
@@ -36,7 +40,7 @@ def initialize(pis: List[Connection], settings: Settings, session: str) -> bool:
 def create_other_folders(session: str, settings: Settings) -> bool:
 	folders = other_folders_save_root(settings)
 	for label, dest in folders.items():
-		print(f"creating {label} folder")
+		logger.info("Creating %s folder", label)
 		folder_name = f"{session}/{label}_{session}"
 		with TemporaryDirectory(prefix="mavrs_") as temp:
 			(Path(temp) / session / f"{label}_{session}").mkdir(parents=True)
@@ -48,7 +52,7 @@ def create_other_folders(session: str, settings: Settings) -> bool:
 					  'Continue anyway? (y/N): ')
 				if ans.lower() not in ("y", "yes"):
 					return False
-		print(f"Created: {dest}/{folder_name}")
+		logger.info("Created: %s/%s", dest, folder_name)
 	return True
 	
 def get_session_name(settings: Settings) -> str:
@@ -72,7 +76,7 @@ def get_session_name(settings: Settings) -> str:
 			val = input(f"Enter {label}: ")
 			suggested = sub(input_pattern, val, suggested, count=1)
 
-		print(suggested)
+		logger.info("Suggested session name: %s", suggested)
 		response = input('If the above name is correct, hit enter. If incorrect, type "n" to restart selection: ')
 		if not response == "n":
 			return suggested
@@ -81,9 +85,9 @@ def choose_experiment_from_file() -> str:
 	lines = load_experiment_names()
 
 	while True:
-		print("\nSelect an experiment name:")
+		logger.info("Select an experiment name:")
 		for index, line in enumerate(lines, start=1):
-			print(f"{index}. {line.strip()}")
+			logger.info("%s. %s", index, line.strip())
 		choice = input("\nEnter number or hit enter to choose #1: ") or "1"
 
 		if choice.isdigit():
@@ -91,9 +95,10 @@ def choose_experiment_from_file() -> str:
 			if 1 <= choice <= len(lines):
 				return lines[choice - 1].strip()
 			else:
-				print("\nInvalid input. Enter a number within the valid range.")
+				logger.warning("Invalid input. Enter a number within the valid range.")
 		else:
-			print("\nInvalid input. Please enter a number.")
+			logger.warning("Invalid input. Please enter a number.")
 
 if __name__ == "__main__":
+	configure_logging()
 	main()

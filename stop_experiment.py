@@ -7,6 +7,7 @@ from load_settings import load_pi_connections, load_settings, Settings
 import transfer_data
 from pi_sysemd import stop_process
 from video_repair import repair_directory
+from console_logging import configure_logging
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ def run_post_session_scripts(settings: Settings) -> bool:
 	data_directory = str(settings.local_data_path.local_path)
 	for label, command in settings.post_session_scripts.items():
 		arguments = [expanduser(part.replace("{local_data_directory}", data_directory)) for part in command]
-		print(f"Running post-session script: {label}", flush=True)
+		logger.info("Running post-session script: %s", label)
 		try:
 			result = run(arguments, check=False)
 		except OSError as exc:
@@ -42,10 +43,11 @@ def run_post_session_scripts(settings: Settings) -> bool:
 	return all_succeeded
 
 def stop_pis() -> None:
-	print("stopping Pi recordings")
-	print("loading pi connections")
+	logger.info("Stopping Pi recordings")
+	logger.info("Loading Pi connections")
 	pis = load_pi_connections()
 	stop_process(pis)
 
 if __name__ == "__main__":
+	configure_logging()
 	raise SystemExit(0 if main() else 1)

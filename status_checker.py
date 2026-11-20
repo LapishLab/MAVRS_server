@@ -1,4 +1,5 @@
 import json
+import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
@@ -11,6 +12,9 @@ from fabric_tools import run_on_connections
 from fabric import Connection
 from locations import rsync_command
 from locations import Location
+from console_logging import configure_logging
+
+logger = logging.getLogger(__name__)
 
 class PiStatus(Enum):
 	UNREACHABLE = "unreachable"
@@ -110,17 +114,17 @@ def check_other_folders_statuses(folders: Optional[dict[str, Location]] = None) 
 
 def stream_statuses(interval: int = 5) -> None:
 	while True:
-		print('--- Pi Statuses ---')
+		logger.info('--- Pi Statuses ---')
 		statuses = get_pi_statuses()
 		for name, health in statuses.items():
-			print(f'{name}: {health.summary}')
+			logger.info('%s: %s', name, health.summary)
 			for component, detail in health.components.items():
-				print(f'  {component}: {detail["state"]}')
+				logger.info('  %s: %s', component, detail["state"])
 		
-		print('--- Other Folder Statuses ---')
+		logger.info('--- Other Folder Statuses ---')
 		statuses = check_other_folders_statuses()
 		for name, status in statuses.items():
-			print(f'{name}: {status.value}')
+			logger.info('%s: %s', name, status.value)
 		time.sleep(interval)
 
 
@@ -128,4 +132,5 @@ def main() -> None:
 	stream_statuses()
 
 if __name__ == "__main__":
+	configure_logging()
 	main()

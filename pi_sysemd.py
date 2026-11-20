@@ -5,16 +5,17 @@ from fabric import Connection
 from fabric_tools import run_on_connections
 from status_checker import get_pi_statuses, PiStatus
 from config import ENV, UNIT, PYTHON_PATH, SCRIPT_PATH
+from console_logging import configure_logging
 
 logger = logging.getLogger(__name__)
 
 def stop_process(c: List[Connection]):
-	print("Sending stop command to Pis")
+	logger.info("Sending stop command to Pis")
 	run_on_connections(c, f"{ENV} systemctl --user stop {UNIT}.service", warn=True)
-	print("Double Checking that Pis have stopped")
+	logger.info("Stop command sent to Pis")
 
 def start_process(c: List[Connection], session: str):
-	print("checking if pis are active")
+	logger.info("Checking if Pis are active")
 
 	for name, health in get_pi_statuses(c).items():
 		if health.status in (PiStatus.UNREACHABLE, PiStatus.UNKNOWN):
@@ -29,7 +30,7 @@ def start_process(c: List[Connection], session: str):
 		
 	statuses = get_pi_statuses(c)
 	if all(v.status in (PiStatus.RUNNING, PiStatus.STARTING) for v in statuses.values()):
-		print(f"Launched {UNIT} on all Pis; check recorder status for readiness")
+		logger.info("Launched %s on all Pis; check recorder status for readiness", UNIT)
 	else:
 		for name, health in statuses.items():
 			if health.status==PiStatus.UNREACHABLE:
@@ -49,4 +50,5 @@ def stream_logs(c: Optional[List[Connection]] = None):
 	run_on_connections(c, f"{ENV} journalctl --user -u {UNIT}.service -f --no-pager", warn=True)
 
 if __name__ == "__main__":
+	configure_logging()
 	stream_logs()

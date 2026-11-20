@@ -54,7 +54,7 @@ def verify_times(pis):
 	if over_threshold:
 		logger.warning(f"Time on the following Pis is off by more than {t_threshold} seconds: {', '.join(over_threshold)}. Time may not have been set correctly.")
 		return
-	print("Time successfully set on all Pis.")
+	logger.info("Time successfully set on all Pis.")
 
 def report_disk_space(pis: List[Connection]) -> None:
 	run_on_connections(pis, "sh MAVRS_pi/reportDiskSpace.sh", warn=False)

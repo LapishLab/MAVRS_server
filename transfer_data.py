@@ -2,7 +2,6 @@
 from subprocess import run, Popen, PIPE, STDOUT
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import deque
-from threading import Lock
 import codecs
 import os
 import logging
@@ -10,9 +9,9 @@ from load_settings import load_settings, load_pi_addresses, Settings, other_fold
 from path_config import PI_SETTINGS_FILE
 from locations import Location, rsync_command
 from transfer_cleanup import cleanup_pi
+from console_logging import configure_logging
 
 logger = logging.getLogger(__name__)
-progress_lock = Lock()
 
 def main(settings: Settings | None = None) -> bool:
 	settings = settings or load_settings()
@@ -23,7 +22,7 @@ def main(settings: Settings | None = None) -> bool:
 	return folders_ok and pis_ok
 	
 def copy_to_pi_home(pis: list[Location] | None = None) -> list[tuple[Location, str | None]]:
-	print("Copying settings to the Pi")
+	logger.info("Copying settings to the Pi")
 
 	pi_names = load_pi_addresses() if pis is None else pis
 	local_settings_path = Location(PI_SETTINGS_FILE)
@@ -43,7 +42,7 @@ def copy_to_pi_home(pis: list[Location] | None = None) -> list[tuple[Location, s
 			error = str(exc)
 		results.append((fullname, error))
 		if error is None:
-			print(f"Successfully copied settings to {fullname.ssh_host}")
+			logger.info("Successfully copied settings to %s", fullname.ssh_host)
 		else:
 			logger.warning("Failed to copy settings to %s: %s", fullname.ssh_host, error)
 	return results
@@ -61,13 +60,11 @@ def stream_rsync(cmd: list[str], label: str) -> tuple[bool, str]:
 		for line in parts:
 			if line.strip():
 				recent.append(line)
-				with progress_lock:
-					print(f"[{label}] {line}", flush=True)
+				logger.info("[%s] %s", label, line)
 	pending += decoder.decode(b"", final=True)
 	if pending.strip():
 		recent.append(pending)
-		with progress_lock:
-			print(f"[{label}] {pending}", flush=True)
+		logger.info("[%s] %s", label, pending)
 	return proc.wait() == 0, "\n".join(recent)
 
 def transfer_pi(fullname: Location, server_path: Location) -> tuple[str, str | None, bool, str]:
@@ -84,13 +81,13 @@ def transfer_pi(fullname: Location, server_path: Location) -> tuple[str, str | N
 
 
 def transfer_pis(settings: Settings) -> bool:
-	print("Copying data from Pi")
+	logger.info("Copying data from Pi")
 
 	pi_names = load_pi_addresses()
 	server_path = settings.local_data_path
 
 	if not pi_names:
-		print("No Pis configured for transfer")
+		logger.info("No Pis configured for transfer")
 		return True
 	with ThreadPoolExecutor(max_workers=len(pi_names)) as executor:
 		futures = {executor.submit(transfer_pi, name, server_path): name for name in pi_names}
@@ -105,25 +102,15 @@ def transfer_pis(settings: Settings) -> bool:
 			continue
 		try:
 			deleted, total = cleanup_pi(pi, port, server_path.local_path)
-			print(f"{fullname}: transferred successfully; deleted {deleted} of {total} visible source files")
+			logger.info("%s: transferred successfully; deleted %s of %s visible source files", fullname, deleted, total)
 		except Exception as exc:
 			logger.warning("Cleanup failed for %s: %s. Data remains on this Pi where cleanup did not complete.", fullname, exc)
 			failed_transfers.append(str(fullname))
 	if not failed_transfers:
-		print(
-			f"\n-----------------------"
-			f"\nAll Pi transfers and cleanup completed"
-			f'\n------------------------'
-			)
+		logger.info("All Pi transfers and cleanup completed")
 		return True
 	else:
-		print(
-			f"\n----WARNING!!----"
-			f"\nTransfer or cleanup failed for the following Pis"
-			f'\n{failed_transfers}'
-			f'\nCheck these Pis before manually deleting data'
-			f'\n------------------------'
-			)
+		logger.warning("Transfer or cleanup failed for Pis: %s. Check these Pis before manually deleting data", ", ".join(failed_transfers))
 		return False
 
 def get_remote_folders(settings: Settings) -> bool:
@@ -133,7 +120,7 @@ def get_remote_folders(settings: Settings) -> bool:
 	for label, remote_path in folders.items():
 		if remote_path == local_data: #Skip transfer if already saved in local path
 			continue
-		print(f"Getting {label} folder")
+		logger.info("Getting %s folder", label)
 		cmd = rsync_command(remote_path, local_data, update=True)
 		try:
 			success, output = stream_rsync(cmd, label)
@@ -145,4 +132,5 @@ def get_remote_folders(settings: Settings) -> bool:
 	return all_succeeded
 
 if __name__ == "__main__":
+	configure_logging()
 	raise SystemExit(0 if main() else 1)

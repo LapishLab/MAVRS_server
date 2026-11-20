@@ -25,7 +25,7 @@ class PostSessionScriptTests(unittest.TestCase):
             "Other": ["other-tool", "--input={local_data_directory}"],
         })
         with patch("stop_experiment.run", return_value=SimpleNamespace(returncode=0)) as run, patch(
-            "builtins.print"
+            "stop_experiment.logger.info"
         ) as output:
             self.assertTrue(run_post_session_scripts(settings))
 
@@ -35,8 +35,8 @@ class PostSessionScriptTests(unittest.TestCase):
             ["other-tool", f"--input={directory}"],
         ])
         self.assertTrue(all(call.kwargs == {"check": False} for call in run.call_args_list))
-        self.assertEqual([call.args[0] for call in output.call_args_list], [
-            "Running post-session script: Med", "Running post-session script: Other"
+        self.assertEqual([call.args for call in output.call_args_list], [
+            ("Running post-session script: %s", "Med"), ("Running post-session script: %s", "Other")
         ])
 
     def test_reports_failure_and_continues_to_next_command(self):

@@ -1,6 +1,9 @@
 """Generate Linux desktop entries for the MAVRS scripts."""
 
+import logging
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 def _desktop_arg(value: str) -> str:
@@ -59,8 +62,9 @@ def main() -> None:
             name, repo_root / script, png_folder / icon, save_folder,
             interactive=interactive,
         )
-        print(f"Created launcher for '{name}' at: {launcher}")
+        logger.info("Created launcher for '%s' at: %s", name, launcher)
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     main()

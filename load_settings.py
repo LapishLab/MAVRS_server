@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import logging
 import yaml 
 from pathlib import Path
 from typing import Dict, Optional, List, Union
@@ -6,6 +7,9 @@ from pydantic import BaseModel, Field, ValidationInfo, field_validator
 from path_config import EXPERIMENT_NAMES_FILE, PI_ADDRESS_FILE, SETTINGS_FILE
 from fabric import Config, Connection
 from locations import Location
+from console_logging import configure_logging
+
+logger = logging.getLogger(__name__)
 
 PI_DATA_PATH = "~/MAVRS_pi/data"
 
@@ -108,16 +112,17 @@ def other_folders_save_root(settings: Optional[Settings] = None) -> dict[str, Lo
 
 def test() -> None:
 	settings = load_settings()
-	print("Settings loaded successfully.")
-	print(settings)
+	logger.info("Settings loaded successfully.")
+	logger.info("%s", settings)
 	
 	experiment_names = load_experiment_names()
-	print("Experiment names loaded successfully.")
-	print(experiment_names)
+	logger.info("Experiment names loaded successfully.")
+	logger.info("%s", experiment_names)
 
 	pi_names = load_pi_addresses()
-	print("Pi names loaded successfully.")
-	print(pi_names)
+	logger.info("Pi names loaded successfully.")
+	logger.info("%s", pi_names)
 
 if __name__ == "__main__":
+	configure_logging()
 	test()

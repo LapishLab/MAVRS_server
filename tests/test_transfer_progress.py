@@ -15,7 +15,7 @@ class TransferProgressTests(unittest.TestCase):
 
         with patch("transfer_data.Popen", return_value=process), patch(
             "transfer_data.os.read", side_effect=lambda *_: next(chunks)
-        ), patch("builtins.print", side_effect=lambda message, **_: events.append(message)):
+        ), patch("transfer_data.logger.info", side_effect=lambda _format, label, message: events.append(f"[{label}] {message}")):
             success, output = stream_rsync(["rsync"], "ephys")
 
         self.assertTrue(success)

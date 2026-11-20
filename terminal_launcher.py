@@ -1,10 +1,14 @@
 """Open interactive MAVRS scripts in a native console on Windows or Linux."""
 
+import logging
 import shlex
 import shutil
 import subprocess
 import sys
 from pathlib import Path
+from console_logging import configure_logging
+
+logger = logging.getLogger(__name__)
 
 
 def _console_python() -> str:
@@ -46,7 +50,7 @@ def _run_script(script_path: Path) -> int:
     try:
         result = subprocess.run([_console_python(), str(script_path)], cwd=script_path.parent)
         if result.returncode:
-            print(f"\nScript exited with status {result.returncode}.")
+            logger.warning("Script exited with status %s.", result.returncode)
         return result.returncode
     finally:
         try:
@@ -56,6 +60,7 @@ def _run_script(script_path: Path) -> int:
 
 
 if __name__ == "__main__":
+    configure_logging()
     if len(sys.argv) != 2:
         raise SystemExit("Expected a script path")
     raise SystemExit(_run_script(Path(sys.argv[1]).resolve()))

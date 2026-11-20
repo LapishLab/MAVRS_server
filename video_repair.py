@@ -2,6 +2,7 @@
 
 import argparse
 import csv
+import logging
 import os
 import shutil
 import traceback
@@ -12,7 +13,9 @@ from pathlib import Path
 
 import av
 import pandas as pd
+from console_logging import configure_logging
 
+logger = logging.getLogger(__name__)
 
 TIME_BASE = Fraction(1, 1_000_000)
 
@@ -200,9 +203,9 @@ def repair_video(
         temporary_backup_pts.unlink(missing_ok=True)
         temporary_timestamps.unlink(missing_ok=True)
     if debug_print:
-        print(f"Wrote {output} and {output_pts} "
-              f"({len(timestamps)} packets, {out_of_order} frames behind earlier timestamps)")
-        print(f"Saved original timestamps to {original_timestamps} and PTS backup to {backup_pts}")
+        logger.debug("Wrote %s and %s (%s packets, %s frames behind earlier timestamps)",
+                    output, output_pts, len(timestamps), out_of_order)
+        logger.debug("Saved original timestamps to %s and PTS backup to %s", original_timestamps, backup_pts)
     return out_of_order
 
 class RepairStatus(StrEnum):
@@ -237,7 +240,7 @@ def repair_directory(directory: str | Path, *, dry_run: bool = False, save_repor
         video = directory / row["video"]
         if video.with_suffix(".pts.bak").is_file():
             report.at[index, "status"] = RepairStatus.ALREADY_REPAIRED
-            print_progress(video_num, total_videos, video, "skipped (already repaired)")
+            log_progress(video_num, total_videos, video, "skipped (already repaired)")
             continue
         try:
             count = repair_video(video, dry_run=dry_run)
@@ -248,32 +251,32 @@ def repair_directory(directory: str | Path, *, dry_run: bool = False, save_repor
                 handle.write(f"Video: {row['video']}\n")
                 handle.writelines(traceback.format_exception(error))
                 handle.write("\n")
-            print_progress(video_num, total_videos, video, f"failed {error}")
+            log_progress(video_num, total_videos, video, f"failed {error}", level=logging.WARNING)
         else:
             stat = RepairStatus.CHECKED if dry_run else RepairStatus.REPAIRED
             report.at[index, "status"] = stat
             report.at[index, "count"] = count
-            print_progress(video_num, total_videos, video, "completed")
+            log_progress(video_num, total_videos, video, "completed")
     directory_report = directory / "repair_report.csv"
     if save_report:
         report.to_csv(directory_report, index=False)
-        print(f"Wrote {directory_report}")
+        logger.debug("Wrote %s", directory_report)
 
-    print("Status totals:")
+    logger.debug("Status totals:")
     status_counts = report["status"].value_counts()
     for status, count in status_counts.items():
-        print(f"  {status}: {count}")
+        logger.debug("  %s: %s", status, count)
 
     out_of_order = report.loc[report["count"].gt(0).fillna(False), ["video", "count"]]
 
     if not out_of_order.empty:
-        print(out_of_order.to_string(index=False))
+        logger.debug("%s", out_of_order.to_string(index=False))
     total_out_of_order = int(out_of_order["count"].sum())
-    print(f"Found {total_out_of_order} out-of-order frames across {len(out_of_order)} videos")
+    logger.debug("Found %s out-of-order frames across %s videos", total_out_of_order, len(out_of_order))
     return int(status_counts.get(RepairStatus.FAILED, 0))
 
-def print_progress(current: int, total: int, video: Path, message: str) -> None:
-    print(f"{current}/{total}:{message}:{Path(*video.parts[-3:])}")
+def log_progress(current: int, total: int, video: Path, message: str, *, level: int = logging.DEBUG) -> None:
+    logger.log(level, "%s/%s:%s:%s", current, total, message, Path(*video.parts[-3:]))
     
 
 def main() -> None:
@@ -288,4 +291,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    configure_logging()
     main()

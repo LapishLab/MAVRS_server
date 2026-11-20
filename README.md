@@ -8,7 +8,7 @@ stopped, unreachable, or unknown. Expand a Pi row to see the enabled GPIO,
 Audio, and Video recorder states. A partial failure names the failed recorder;
 healthy recorders continue until the experiment is stopped. Double-click a Pi
 or component row to open that Pi's journal log. `python status_checker.py`
-prints the same status at the command line.
+logs the same status at the command line.
 
 Deploy the matching `MAVRS_pi` code to each Pi before using this server status
 checker. An older Pi without `recording_status.py` appears as unknown. Status
@@ -89,7 +89,7 @@ After transfer attempts, **Stop Experiment** runs the bundled
 `video_repair.repair_directory` on `local_data_path`, before the configured
 post-session commands. It examines every `.mp4` below that directory, repairs
 each video in place using its matching `.pts` camera timestamps, and skips
-videos already marked by a matching `.pts.bak` file. The repair prints progress
+videos already marked by a matching `.pts.bak` file. The repair logs progress
 in the stop terminal and writes `repair_report.csv` in the local data directory.
 Per-video errors are appended to `repair_error.log`; other videos and
 post-session commands still run. Any repair failure gives the stop command a
