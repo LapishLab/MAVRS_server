@@ -71,6 +71,15 @@ class TransferCleanupTests(unittest.TestCase):
         self.assertEqual(len(calls), 2)
         self.assertEqual(calls[0][:2], ("pi", "2222"))
 
+    def test_partial_deletion_is_a_cleanup_failure(self):
+        inventory = [["session/equal", 4, self.second]]
+        with patch.object(Path, "lstat", lambda path: self.fake_lstat(path)), patch(
+            "transfer_cleanup._pi_command",
+            side_effect=[json.dumps(inventory), json.dumps({"deleted": 0})],
+        ):
+            with self.assertRaisesRegex(RuntimeError, "Deleted 0 of 1 eligible files from pi"):
+                cleanup_pi("pi", None, "/server")
+
     def test_ssh_config_can_choose_default_port(self):
         with patch("transfer_cleanup.run", return_value=SimpleNamespace(stdout="ok")) as run:
             self.assertEqual(_pi_command("pi@camera.local", None, "inventory"), "ok")

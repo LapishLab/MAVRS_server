@@ -1,12 +1,10 @@
 """Compare the Pi inventory with server files and request safe cleanup."""
 
 import json
-import logging
 import stat
 from pathlib import Path, PurePosixPath
 from subprocess import CalledProcessError, run
 
-logger = logging.getLogger(__name__)
 PI_CLEANUP_SCRIPT = "~/MAVRS_pi/transfer_cleanup.py"
 MTIME_TOLERANCE_NS = 10_000_000  # exFAT stores modification times in 10 ms steps.
 
@@ -66,6 +64,8 @@ def cleanup_pi(host: str, port: str | None, server_path: str | Path) -> tuple[in
     result = json.loads(_pi_command(host, port, "delete", json.dumps(selected)))
     deleted = result["deleted"]
     if deleted != len(selected):
-        logger.warning("Deleted %s of %s eligible files from %s; files changed or disappeared during cleanup",
-                       deleted, len(selected), host)
+        raise RuntimeError(
+            f"Deleted {deleted} of {len(selected)} eligible files from {host}; "
+            "files changed or disappeared during cleanup"
+        )
     return deleted, len(inventory)
