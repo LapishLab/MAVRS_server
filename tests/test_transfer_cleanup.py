@@ -16,6 +16,10 @@ class TransferCleanupTests(unittest.TestCase):
             "session/newer": (6, self.second + 1_000_000_000),
             "session/different_size": (6, self.second),
             "session/older": (4, self.second),
+            "session/rounded": (4, self.second - 5_000_000),
+            "session/boundary": (4, self.second - 10_000_000),
+            "session/too_old": (4, self.second - 10_000_001),
+            "session/rounded_different_size": (6, self.second - 5_000_000),
         }
 
     def fake_lstat(self, path):
@@ -27,13 +31,17 @@ class TransferCleanupTests(unittest.TestCase):
         size, mtime = self.files[relative]
         return SimpleNamespace(st_mode=stat.S_IFREG, st_size=size, st_mtime_ns=mtime)
 
-    def test_selects_equal_or_newer_files_only(self):
+    def test_selects_newer_or_same_size_within_timestamp_tolerance(self):
         second = self.second
         inventory = [
             ["session/equal", 4, second],
             ["session/newer", 4, second],
             ["session/different_size", 4, second],
             ["session/older", 4, second + 1_000_000_000],
+            ["session/rounded", 4, second],
+            ["session/boundary", 4, second],
+            ["session/too_old", 4, second],
+            ["session/rounded_different_size", 4, second],
             ["session/missing", 4, second],
             ["session/.hidden", 4, second],
             ["../outside", 4, second],
@@ -41,7 +49,8 @@ class TransferCleanupTests(unittest.TestCase):
         ]
         with patch.object(Path, "lstat", lambda path: self.fake_lstat(path)):
             result = eligible_files(inventory, "/server")
-        self.assertEqual([row[0] for row in result], ["session/equal", "session/newer"])
+        self.assertEqual([row[0] for row in result],
+                         ["session/equal", "session/newer", "session/rounded", "session/boundary"])
 
     def test_cleanup_uses_inventory_and_sends_only_selected_files(self):
         second = self.second

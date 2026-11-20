@@ -8,6 +8,7 @@ from subprocess import CalledProcessError, run
 
 logger = logging.getLogger(__name__)
 PI_CLEANUP_SCRIPT = "~/MAVRS_pi/transfer_cleanup.py"
+MTIME_TOLERANCE_NS = 10_000_000  # exFAT stores modification times in 10 ms steps.
 
 
 def _pi_command(host: str, port: str | None, action: str, input_text: str | None = None) -> str:
@@ -47,14 +48,14 @@ def _server_file(root: Path, relative: str):
 
 
 def eligible_files(inventory: list, server_path: str | Path) -> list:
-    """Select source files whose destination is equal or newer."""
+    """Select files with a newer destination or a same-size copy within 10 ms."""
     root = Path(server_path)
     selected = []
     for relative, size, mtime_ns in inventory:
         info = _server_file(root, relative)
         if info is None:
             continue
-        if info.st_mtime_ns > mtime_ns or (info.st_mtime_ns == mtime_ns and info.st_size == size):
+        if info.st_mtime_ns > mtime_ns or (info.st_size == size and info.st_mtime_ns >= mtime_ns - MTIME_TOLERANCE_NS):
             selected.append([relative, size, mtime_ns])
     return selected
 
