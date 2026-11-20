@@ -17,35 +17,48 @@ def _load_settings(settings_file: Path) -> dict:
     return settings
 
 
-def read_data_paths(settings_file: Path = SETTINGS_FILE) -> tuple[str, str | None, dict[str, str | None]]:
+def read_data_paths(
+    settings_file: Path = SETTINGS_FILE,
+) -> tuple[str, str | None, dict[str, str | None], str]:
     settings = _load_settings(settings_file)
 
     local_path = settings.get("local_data_path", "")
     backup_path = settings.get("backup_data_path")
     folders = settings.get("other_folders")
+    suggested_name_format = settings.get(
+        "suggested_name_format",
+        Settings.model_fields["suggested_name_format"].default,
+    )
     if folders is None:
         folders = {}
-    if not isinstance(local_path, str) or (backup_path is not None and not isinstance(backup_path, str)):
+    if (
+        not isinstance(local_path, str)
+        or (backup_path is not None and not isinstance(backup_path, str))
+    ):
         raise ValueError("Data paths must be text or null")
+    if not isinstance(suggested_name_format, str):
+        raise ValueError("Suggested session name format must be text")
     if not isinstance(folders, dict) or any(
         not isinstance(name, str) or (path is not None and not isinstance(path, str))
         for name, path in folders.items()
     ):
         raise ValueError("Other folders must map names to text paths or null")
-    return local_path, backup_path, folders
+    return local_path, backup_path, folders, suggested_name_format
 
 
 def save_data_paths(
     local_path: str,
     backup_path: str | None,
     folders: dict[str, str | None],
+    suggested_name_format: str,
     settings_file: Path = SETTINGS_FILE,
 ) -> None:
-    """Update the path fields while retaining other setting values."""
+    """Update data-path and session-name fields while retaining other settings."""
     settings = _load_settings(settings_file)
     settings["local_data_path"] = local_path
     settings["backup_data_path"] = backup_path
     settings["other_folders"] = folders
+    settings["suggested_name_format"] = suggested_name_format
     Settings.model_validate(settings)
     updated = yaml.safe_dump(settings, sort_keys=False, allow_unicode=True)
 

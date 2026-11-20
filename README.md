@@ -22,8 +22,10 @@ preserved. The default settings use `~/MAVRS_data` on both Windows and Linux;
 MAVRS creates that directory with
 the new settings file. Edit `settings.yaml` to use your intended data drive.
 The GUI's **Preferences > Data Paths** dialog can edit the local data path,
-backup destination, and other folders. A blank other-folder path uses the local
-data path; a blank backup destination leaves backup unconfigured.
+backup destination, other folders, and suggested session-name format. Session
+names can include `%date%`, `%time%`, `%experiment%`, and `%input%` or
+`%input{prompt}%` substitutions. A blank other-folder path uses the local data
+path; a blank backup destination leaves backup unconfigured.
 **Preferences > Pi fleet Settings** opens a window for
 `~/MAVRS_settings/mavrs_pi_config.yaml`. If missing, MAVRS copies
 `setup/config_templates/mavrs_pi_config.yaml` there. Open the file in your

@@ -453,13 +453,12 @@ class DataPathsDialog(QtWidgets.QDialog):
 		paths = QtWidgets.QFormLayout()
 		self.local_path = QtWidgets.QLineEdit()
 		self.backup_path = QtWidgets.QLineEdit()
+		self.suggested_name_format = QtWidgets.QLineEdit()
 		self.backup_path.setPlaceholderText("Leave blank if no backup destination is configured")
 		paths.addRow("Local data path", self.local_path)
 		paths.addRow("Backup data path", self.backup_path)
+		paths.addRow("Session Name Format", self.suggested_name_format)
 		layout.addLayout(paths)
-		warning = QtWidgets.QLabel("Changing paths during a recording can redirect data collection when it stops.")
-		warning.setWordWrap(True)
-		layout.addWidget(warning)
 
 		folder_group = QtWidgets.QGroupBox("Other Folders")
 		folder_layout = QtWidgets.QVBoxLayout(folder_group)
@@ -492,9 +491,10 @@ class DataPathsDialog(QtWidgets.QDialog):
 		self.btn_save.clicked.connect(self.save)
 		self.btn_close.clicked.connect(self.reject)
 
-		local_path, backup_path, folders = read_data_paths()
+		local_path, backup_path, folders, suggested_name_format = read_data_paths()
 		self.local_path.setText(local_path)
 		self.backup_path.setText(backup_path or "")
+		self.suggested_name_format.setText(suggested_name_format)
 		for name, path in folders.items():
 			self.add_folder_row(name, path or "")
 
@@ -529,7 +529,12 @@ class DataPathsDialog(QtWidgets.QDialog):
 				return
 			folders[name] = path or None
 		try:
-			save_data_paths(self.local_path.text(), self.backup_path.text() or None, folders)
+			save_data_paths(
+				self.local_path.text(),
+				self.backup_path.text() or None,
+				folders,
+				self.suggested_name_format.text(),
+			)
 		except ValidationError as exc:
 			QtWidgets.QMessageBox.warning(self, "Invalid Data Paths", format_settings_validation_errors(exc))
 			return

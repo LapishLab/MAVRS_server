@@ -35,15 +35,21 @@ class DataPathsTests(unittest.TestCase):
         save_data_paths(
             new_local, None,
             {"ephys": None, "med_pc": "user@new:/data/#session", "extra": extra_path},
+            "%time%_%experiment%",
             self.settings_file,
         )
 
         self.assertEqual(
             read_data_paths(self.settings_file),
-            (new_local, None, {"ephys": None, "med_pc": "user@new:/data/#session", "extra": extra_path}),
+            (
+                new_local,
+                None,
+                {"ephys": None, "med_pc": "user@new:/data/#session", "extra": extra_path},
+                "%time%_%experiment%",
+            ),
         )
         saved = yaml.safe_load(self.settings_file.read_text(encoding="utf-8"))
-        self.assertEqual(saved["suggested_name_format"], "%date%_%experiment%")
+        self.assertEqual(saved["suggested_name_format"], "%time%_%experiment%")
         self.assertEqual(saved["custom_setting"], {"enabled": True})
         self.assertNotIn("# local note", self.settings_file.read_text(encoding="utf-8"))
 
@@ -55,10 +61,21 @@ class DataPathsTests(unittest.TestCase):
             encoding="utf-8",
         )
 
-        save_data_paths(new_local, "user@host:/backup/", {}, self.settings_file)
+        save_data_paths(new_local, "user@host:/backup/", {}, "%date%", self.settings_file)
 
-        self.assertEqual(read_data_paths(self.settings_file), (new_local, "user@host:/backup/", {}))
+        self.assertEqual(read_data_paths(self.settings_file), (new_local, "user@host:/backup/", {}, "%date%"))
         self.assertEqual(yaml.safe_load(self.settings_file.read_text())["other_folders"], {})
+
+    def test_read_uses_default_name_format_when_setting_is_missing(self) -> None:
+        local = "C:/data/" if os.name == "nt" else "/data/"
+        self.settings_file.write_text(
+            yaml.safe_dump({"local_data_path": local, "backup_data_path": None, "other_folders": {}}),
+            encoding="utf-8",
+        )
+
+        _, _, _, suggested_name_format = read_data_paths(self.settings_file)
+
+        self.assertEqual(suggested_name_format, "%date%_%time%_%experiment%_rat%input{rat number}%")
 
     def test_invalid_paths_are_not_saved(self) -> None:
         local = "C:/data/" if os.name == "nt" else "/data/"
@@ -75,7 +92,7 @@ class DataPathsTests(unittest.TestCase):
         ):
             with self.subTest(local_path=local_path, backup_path=backup_path, folders=folders):
                 with self.assertRaises(ValueError):
-                    save_data_paths(local_path, backup_path, folders, self.settings_file)
+                    save_data_paths(local_path, backup_path, folders, "%date%", self.settings_file)
                 self.assertEqual(self.settings_file.read_text(encoding="utf-8"), original)
 
     def test_validation_messages_identify_fields_and_folder(self) -> None:
@@ -100,7 +117,7 @@ class DataPathsTests(unittest.TestCase):
         self.settings_file.write_text(original, encoding="utf-8")
 
         with self.assertRaises(yaml.YAMLError):
-            save_data_paths("/new/", None, {}, self.settings_file)
+            save_data_paths("/new/", None, {}, "%date%", self.settings_file)
 
         self.assertEqual(self.settings_file.read_text(encoding="utf-8"), original)
 
