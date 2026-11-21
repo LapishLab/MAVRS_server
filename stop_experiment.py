@@ -16,12 +16,16 @@ def main() -> bool:
 	stop_process(pis)
 	settings = load_settings()
 	transfers_ok = transfer_data.main(settings)
-	try:
-		failed_repairs = repair_directory(settings.local_data_path.local_path)
-		repair_ok = failed_repairs == 0
-	except Exception as exc:
-		logger.warning("Video repair failed: %s", exc)
-		repair_ok = False
+	repair_ok = True
+	if settings.repair_videos_on_stop:
+		try:
+			failed_repairs = repair_directory(settings.local_data_path.local_path)
+			repair_ok = failed_repairs == 0
+		except Exception as exc:
+			logger.warning("Video repair failed: %s", exc)
+			repair_ok = False
+	else:
+		logger.debug("Video repair skipped (repair_videos_on_stop is false)")
 	scripts_ok = run_post_session_scripts(settings)
 	return transfers_ok and repair_ok and scripts_ok
 

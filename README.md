@@ -87,7 +87,13 @@ files can omit this field; the default is an empty mapping.
 
 ## Video timestamp repair after stopping
 
-After transfer attempts, **Stop Experiment** runs the bundled
+Set `repair_videos_on_stop: false` in `~/MAVRS_settings/settings.yaml` to skip
+automatic repair when stopping an experiment. It defaults to `true` for
+existing settings files. The same option is available in **Preferences →
+Automated Data Processing → Repair video timestamps** in the GUI. You can
+still run `video_repair.py` manually.
+
+When enabled, after transfer attempts **Stop Experiment** runs the bundled
 `video_repair.repair_directory` on `local_data_path`, before the configured
 post-session commands. It examines every `.mp4` below that directory, repairs
 each video in place using its matching `.pts` camera timestamps, and skips

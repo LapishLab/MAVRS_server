@@ -1,4 +1,4 @@
-"""Read and update the path fields in the server settings file."""
+"""Read and update GUI preferences in the server settings file."""
 
 import os
 import tempfile
@@ -15,6 +15,31 @@ def _load_settings(settings_file: Path) -> dict:
     if not isinstance(settings, dict):
         raise ValueError("Settings must contain a YAML mapping")
     return settings
+
+
+def _save_settings(settings: dict, settings_file: Path) -> None:
+    Settings.model_validate(settings)
+    updated = yaml.safe_dump(settings, sort_keys=False, allow_unicode=True)
+
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", newline="", dir=settings_file.parent, delete=False) as file:
+            temporary_path = Path(file.name)
+            file.write(updated)
+        os.replace(temporary_path, settings_file)
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+
+
+def read_repair_videos_on_stop(settings_file: Path = SETTINGS_FILE) -> bool:
+    return Settings.model_validate(_load_settings(settings_file)).repair_videos_on_stop
+
+
+def save_repair_videos_on_stop(enabled: bool, settings_file: Path = SETTINGS_FILE) -> None:
+    settings = _load_settings(settings_file)
+    settings["repair_videos_on_stop"] = enabled
+    _save_settings(settings, settings_file)
 
 
 def read_data_paths(
@@ -59,15 +84,4 @@ def save_data_paths(
     settings["backup_data_path"] = backup_path
     settings["other_folders"] = folders
     settings["suggested_name_format"] = suggested_name_format
-    Settings.model_validate(settings)
-    updated = yaml.safe_dump(settings, sort_keys=False, allow_unicode=True)
-
-    temporary_path: Path | None = None
-    try:
-        with tempfile.NamedTemporaryFile("w", encoding="utf-8", newline="", dir=settings_file.parent, delete=False) as file:
-            temporary_path = Path(file.name)
-            file.write(updated)
-        os.replace(temporary_path, settings_file)
-    finally:
-        if temporary_path is not None:
-            temporary_path.unlink(missing_ok=True)
+    _save_settings(settings, settings_file)

@@ -24,6 +24,7 @@ class Settings(BaseModel):
 	local_data_path: Location
 	other_folders: Dict[str, Optional[Location]] = {}
 	post_session_scripts: Dict[str, List[str]] = Field(default_factory=dict)
+	repair_videos_on_stop: bool = True
 	suggested_name_format: str = "%date%_%time%_%experiment%_rat%input{rat number}%"
 	backup_data_path: Optional[Location]
 

@@ -23,7 +23,12 @@ from PySide6.QtGui import QStandardItemModel, QStandardItem
 from PySide6.QtWidgets import QApplication
 
 from config import ENV, UNIT
-from data_paths import read_data_paths, save_data_paths
+from data_paths import (
+	read_data_paths,
+	read_repair_videos_on_stop,
+	save_data_paths,
+	save_repair_videos_on_stop,
+)
 from load_settings import load_pi_connections
 from locations import Location
 from path_config import PI_ADDRESS_FILE, EXPERIMENT_NAMES_FILE, PI_SETTINGS_FILE
@@ -37,6 +42,7 @@ def format_settings_validation_errors(error: ValidationError) -> str:
 		"backup_data_path": "Backup data path",
 		"other_folders": "Other folders",
 		"suggested_name_format": "Session name format",
+		"repair_videos_on_stop": "Repair video timestamps",
 	}
 	messages = []
 	for issue in error.errors():
@@ -443,6 +449,38 @@ class ExperimentNameEditorDialog(QtWidgets.QDialog):
 		Path(EXPERIMENT_NAMES_FILE).write_text("\n".join(out_lines) + "\n")
 
 
+class AutomatedDataProcessingDialog(QtWidgets.QDialog):
+	def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
+		super().__init__(parent)
+		self.setWindowTitle("Automated Data Processing")
+		layout = QtWidgets.QVBoxLayout(self)
+
+		self.repair_video_timestamps = QtWidgets.QCheckBox("Repair video timestamps")
+		self.repair_video_timestamps.setChecked(read_repair_videos_on_stop())
+		layout.addWidget(self.repair_video_timestamps)
+
+		buttons = QtWidgets.QHBoxLayout()
+		self.btn_save = QtWidgets.QPushButton("Save")
+		self.btn_close = QtWidgets.QPushButton("Close")
+		buttons.addStretch()
+		buttons.addWidget(self.btn_save)
+		buttons.addWidget(self.btn_close)
+		layout.addLayout(buttons)
+		self.btn_save.clicked.connect(self.save)
+		self.btn_close.clicked.connect(self.reject)
+
+	def save(self) -> None:
+		try:
+			save_repair_videos_on_stop(self.repair_video_timestamps.isChecked())
+		except ValidationError as exc:
+			QtWidgets.QMessageBox.warning(self, "Invalid Settings", format_settings_validation_errors(exc))
+			return
+		except Exception as exc:
+			QtWidgets.QMessageBox.critical(self, "Automated Data Processing", f"Failed to save settings: {exc}")
+			return
+		self.accept()
+
+
 class DataPathsDialog(QtWidgets.QDialog):
 	def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
 		super().__init__(parent)
@@ -684,8 +722,10 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.btn_edit = QtWidgets.QPushButton("Pi Addresses")
 		self.btn_edit_experiments = QtWidgets.QPushButton("Experiment Names")
 		self.btn_data_paths = QtWidgets.QPushButton("Data Paths")
+		self.btn_automated_data_processing = QtWidgets.QPushButton("Automated Data Processing")
 		self.btn_pi_settings = QtWidgets.QPushButton("Pi fleet Settings")
 		preferences_layout.addWidget(self.btn_data_paths)
+		preferences_layout.addWidget(self.btn_automated_data_processing)
 		preferences_layout.addWidget(self.btn_edit)
 		preferences_layout.addWidget(self.btn_edit_experiments)
 		preferences_layout.addWidget(self.btn_pi_settings)
@@ -729,6 +769,7 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.btn_edit.clicked.connect(self.open_editor)
 		self.btn_edit_experiments.clicked.connect(self.open_experiment_name_editor)
 		self.btn_data_paths.clicked.connect(self.open_data_paths)
+		self.btn_automated_data_processing.clicked.connect(self.open_automated_data_processing)
 		self.btn_pi_settings.clicked.connect(self.open_pi_settings)
 		self.tree.doubleClicked.connect(self.open_log_stream)
 
@@ -857,6 +898,13 @@ class MainWindow(QtWidgets.QMainWindow):
 			dlg.exec()
 		except Exception as exc:
 			QtWidgets.QMessageBox.critical(self, "Data Paths", f"Failed to open settings: {exc}")
+
+	def open_automated_data_processing(self) -> None:
+		try:
+			dlg = AutomatedDataProcessingDialog(self)
+			dlg.exec()
+		except Exception as exc:
+			QtWidgets.QMessageBox.critical(self, "Automated Data Processing", f"Failed to open settings: {exc}")
 
 	def open_pi_settings(self) -> None:
 		try:
