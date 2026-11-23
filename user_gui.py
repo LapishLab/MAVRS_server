@@ -25,6 +25,7 @@ from PySide6.QtWidgets import QApplication
 from pi_command_config import ENV, UNIT
 from gui_settings import (
 	read_data_paths,
+	read_post_session_scripts,
 	read_repair_videos_on_transfer,
 	read_transfer_on_stop,
 	save_data_paths,
@@ -46,6 +47,7 @@ def format_settings_validation_errors(error: ValidationError) -> str:
 		"repair_videos_on_transfer": "Repair video timestamps",
 		"repair_videos_on_stop": "Repair video timestamps",
 		"transfer_on_stop": "Transfer data after stopping",
+		"post_session_scripts": "Post-transfer scripts",
 	}
 	messages = []
 	for issue in error.errors():
@@ -452,10 +454,114 @@ class ExperimentNameEditorDialog(QtWidgets.QDialog):
 		Path(EXPERIMENT_NAMES_FILE).write_text("\n".join(out_lines) + "\n")
 
 
+def small_action_button(
+	symbol: str, action: str, color: str | None = None,
+	size: int = 28, font_size: int = 14,
+) -> QtWidgets.QToolButton:
+	button = QtWidgets.QToolButton()
+	button.setText(symbol)
+	button.setToolTip(action)
+	button.setAccessibleName(action)
+	button.setFixedSize(size, size)
+	button.setAutoRaise(True)
+	font = button.font()
+	font.setPointSize(font_size)
+	font.setBold(True)
+	button.setFont(font)
+	if color is not None:
+		button.setStyleSheet(f"color: {color}")
+	return button
+
+
+class PostTransferScriptEditor(QtWidgets.QWidget):
+	def __init__(self, name: str = "", command: list[str] | None = None) -> None:
+		super().__init__()
+		layout = QtWidgets.QVBoxLayout(self)
+		layout.setContentsMargins(0, 0, 0, 0)
+		header = QtWidgets.QHBoxLayout()
+		header.setSpacing(4)
+		self.name = QtWidgets.QLineEdit(name)
+		self.name.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+		self.name.setFixedWidth(150)
+		self.move_up_button = small_action_button("↑", "Move script up", size=40, font_size=20)
+		self.move_down_button = small_action_button("↓", "Move script down", size=40, font_size=20)
+		self.remove_button = small_action_button("−", "Remove script", "#e35b5b", size=40, font_size=20)
+		header.addSpacing(3 * 40 + 2 * header.spacing())
+		left_line = QtWidgets.QFrame()
+		left_line.setFrameShape(QtWidgets.QFrame.Shape.HLine)
+		right_line = QtWidgets.QFrame()
+		right_line.setFrameShape(QtWidgets.QFrame.Shape.HLine)
+		header.addWidget(left_line, 1)
+		header.addWidget(self.name)
+		header.addWidget(right_line, 1)
+		header.addWidget(self.move_up_button)
+		header.addWidget(self.move_down_button)
+		header.addWidget(self.remove_button)
+		layout.addLayout(header)
+
+		self.argument_layout = QtWidgets.QVBoxLayout()
+		layout.addLayout(self.argument_layout)
+		self.arguments: list[tuple[QtWidgets.QWidget, QtWidgets.QLineEdit, QtWidgets.QLabel]] = []
+		for argument in command if command is not None else [""]:
+			self.add_argument(argument)
+
+		self.add_argument_button = small_action_button("+", "Add argument", "#36bb70")
+		layout.addWidget(self.add_argument_button, alignment=QtCore.Qt.AlignmentFlag.AlignLeft)
+		separator = QtWidgets.QFrame()
+		separator.setFrameShape(QtWidgets.QFrame.Shape.HLine)
+		layout.addWidget(separator)
+		self.add_argument_button.clicked.connect(lambda: self.add_argument())
+
+	def add_argument(self, value: str = "") -> None:
+		row = QtWidgets.QWidget()
+		layout = QtWidgets.QHBoxLayout(row)
+		layout.setContentsMargins(0, 0, 0, 0)
+		label = QtWidgets.QLabel()
+		label.setFixedWidth(85)
+		argument = QtWidgets.QLineEdit(value)
+		up = small_action_button("↑", "Move argument up")
+		down = small_action_button("↓", "Move argument down")
+		remove = small_action_button("−", "Remove argument", "#e35b5b")
+		layout.addWidget(label)
+		layout.addWidget(argument, 1)
+		layout.addWidget(up)
+		layout.addWidget(down)
+		layout.addWidget(remove)
+		self.argument_layout.addWidget(row)
+		self.arguments.append((row, argument, label))
+		self.refresh_argument_labels()
+		up.clicked.connect(lambda: self.move_argument(row, -1))
+		down.clicked.connect(lambda: self.move_argument(row, 1))
+		remove.clicked.connect(lambda: self.remove_argument(row))
+
+	def move_argument(self, row: QtWidgets.QWidget, offset: int) -> None:
+		index = next(i for i, entry in enumerate(self.arguments) if entry[0] is row)
+		new_index = index + offset
+		if 0 <= new_index < len(self.arguments):
+			self.arguments.insert(new_index, self.arguments.pop(index))
+			self.argument_layout.removeWidget(row)
+			self.argument_layout.insertWidget(new_index, row)
+			self.refresh_argument_labels()
+
+	def remove_argument(self, row: QtWidgets.QWidget) -> None:
+		self.arguments = [entry for entry in self.arguments if entry[0] is not row]
+		self.argument_layout.removeWidget(row)
+		row.deleteLater()
+		self.refresh_argument_labels()
+
+	def refresh_argument_labels(self) -> None:
+		for index, (_, _, label) in enumerate(self.arguments, 1):
+			label.setText(f"Arg{index}")
+
+	def command(self) -> list[str]:
+		return [argument.text() for _, argument, _ in self.arguments]
+
+
 class AutomatedDataProcessingDialog(QtWidgets.QDialog):
 	def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
 		super().__init__(parent)
 		self.setWindowTitle("Data Processing")
+		self.resize(*relative_window_size(0.65, 0.7))
 		layout = QtWidgets.QVBoxLayout(self)
 
 		self.transfer_on_stop = QtWidgets.QCheckBox("Transfer data after stopping an experiment")
@@ -465,6 +571,32 @@ class AutomatedDataProcessingDialog(QtWidgets.QDialog):
 		self.repair_video_timestamps = QtWidgets.QCheckBox("Repair video timestamps")
 		self.repair_video_timestamps.setChecked(read_repair_videos_on_transfer())
 		layout.addWidget(self.repair_video_timestamps)
+
+		script_title = QtWidgets.QLabel("Post-transfer scripts")
+		script_title.setStyleSheet("font-weight: bold")
+		layout.addWidget(script_title)
+		script_note = QtWidgets.QLabel(
+			"Run after each transfer, in order. Arg1 is the program to run; each following row is an argument. "
+			"Paths with spaces do not need quotes. "
+			"Use {local_data_directory} for the local data path."
+		)
+		script_note.setWordWrap(True)
+		layout.addWidget(script_note)
+		script_scroll = QtWidgets.QScrollArea()
+		script_scroll.setWidgetResizable(True)
+		script_scroll.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
+		container = QtWidgets.QWidget()
+		self.script_rows_layout = QtWidgets.QVBoxLayout(container)
+		self.script_rows_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
+		script_scroll.setWidget(container)
+		layout.addWidget(script_scroll, 1)
+		self.btn_add_script = small_action_button("+", "Add script", "#36bb70", size=40, font_size=20)
+		self.script_rows_layout.addWidget(self.btn_add_script, alignment=QtCore.Qt.AlignmentFlag.AlignHCenter)
+		self.script_rows_layout.addStretch()
+		self.scripts: list[PostTransferScriptEditor] = []
+		self.btn_add_script.clicked.connect(lambda: self.add_script())
+		for name, command in read_post_session_scripts().items():
+			self.add_script(name, command)
 
 		buttons = QtWidgets.QHBoxLayout()
 		self.btn_save = QtWidgets.QPushButton("Save")
@@ -476,10 +608,48 @@ class AutomatedDataProcessingDialog(QtWidgets.QDialog):
 		self.btn_save.clicked.connect(self.save)
 		self.btn_close.clicked.connect(self.reject)
 
+	def add_script(self, name: str | None = None, command: list[str] | None = None) -> None:
+		if name is None:
+			existing_names = {script.name.text().strip() for script in self.scripts}
+			index = 1
+			while f"Script_{index}" in existing_names:
+				index += 1
+			name = f"Script_{index}"
+		script = PostTransferScriptEditor(name, command)
+		self.script_rows_layout.insertWidget(len(self.scripts), script)
+		self.scripts.append(script)
+		script.move_up_button.clicked.connect(lambda: self.move_script(script, -1))
+		script.move_down_button.clicked.connect(lambda: self.move_script(script, 1))
+		script.remove_button.clicked.connect(lambda: self.remove_script(script))
+
+	def move_script(self, script: PostTransferScriptEditor, offset: int) -> None:
+		index = self.scripts.index(script)
+		new_index = index + offset
+		if 0 <= new_index < len(self.scripts):
+			self.scripts.insert(new_index, self.scripts.pop(index))
+			self.script_rows_layout.removeWidget(script)
+			self.script_rows_layout.insertWidget(new_index, script)
+
+	def remove_script(self, script: PostTransferScriptEditor) -> None:
+		self.scripts.remove(script)
+		self.script_rows_layout.removeWidget(script)
+		script.deleteLater()
+
 	def save(self) -> None:
+		scripts: dict[str, list[str]] = {}
+		for script in self.scripts:
+			name = script.name.text().strip()
+			command = script.command()
+			if not name or name in scripts or not command or not command[0].strip():
+				QtWidgets.QMessageBox.warning(
+					self, "Post-transfer scripts", "Each script needs a unique name and a nonempty Arg1."
+				)
+				return
+			scripts[name] = command
 		try:
 			save_processing_preferences(
-				self.transfer_on_stop.isChecked(), self.repair_video_timestamps.isChecked()
+				self.transfer_on_stop.isChecked(), self.repair_video_timestamps.isChecked(),
+				post_session_scripts=scripts,
 			)
 		except ValidationError as exc:
 			QtWidgets.QMessageBox.warning(self, "Invalid Settings", format_settings_validation_errors(exc))

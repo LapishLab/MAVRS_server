@@ -73,9 +73,11 @@ once.
 
 ## Post-session scripts
 
-Add labeled command lists to `post_session_scripts` in
-`~/MAVRS_settings/settings.yaml`. These commands run after data transfer,
-whether transfer is started by Stop Experiment, the GUI button, or
+Add post-transfer scripts under **Preferences > Data Processing**, or edit
+`post_session_scripts` in `~/MAVRS_settings/settings.yaml`. Each script has a
+name and ordered argument rows. Arg1 is the program to run; later rows are its
+arguments. Paths with spaces do not need quotes. These commands run after
+data transfer, whether transfer is started by Stop Experiment, the GUI button, or
 `transfer_data.py`. For example, to run `med_handling` with its own
 virtual environment:
 

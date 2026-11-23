@@ -6,7 +6,7 @@ from tempfile import TemporaryDirectory
 import yaml
 
 from gui_settings import (
-    read_data_paths, read_repair_videos_on_transfer, read_transfer_on_stop,
+    read_data_paths, read_post_session_scripts, read_repair_videos_on_transfer, read_transfer_on_stop,
     save_data_paths, save_processing_preferences,
 )
 
@@ -38,6 +38,30 @@ class DataPathsTests(unittest.TestCase):
         self.assertTrue(read_repair_videos_on_transfer(self.settings_file))
         saved = yaml.safe_load(self.settings_file.read_text(encoding="utf-8"))
         self.assertNotIn("repair_videos_on_stop", saved)
+
+    def test_post_session_scripts_round_trip_in_order(self) -> None:
+        local = "C:/data/" if os.name == "nt" else "/data/"
+        self.settings_file.write_text(
+            yaml.safe_dump({
+                "local_data_path": local,
+                "backup_data_path": None,
+                "post_session_scripts": {"Old": ["old-tool"]},
+            }),
+            encoding="utf-8",
+        )
+        scripts = {
+            "Med": ["C:/Program Files/Python/python.exe", "handling.py", "{local_data_directory}"],
+            "Next": ["other-tool", "", "--flag"],
+        }
+
+        save_processing_preferences(True, False, self.settings_file, post_session_scripts=scripts)
+
+        self.assertEqual(read_post_session_scripts(self.settings_file), scripts)
+        self.assertEqual(
+            yaml.safe_load(self.settings_file.read_text(encoding="utf-8"))["post_session_scripts"], scripts
+        )
+        save_processing_preferences(True, False, self.settings_file, post_session_scripts={})
+        self.assertEqual(read_post_session_scripts(self.settings_file), {})
 
     def test_save_preserves_unrelated_setting_values(self) -> None:
         old_local = "C:/old/" if os.name == "nt" else "/old/"

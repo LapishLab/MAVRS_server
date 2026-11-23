@@ -40,14 +40,21 @@ def read_repair_videos_on_transfer(settings_file: Path = SETTINGS_FILE) -> bool:
     return Settings.model_validate(_load_settings(settings_file)).repair_videos_on_transfer
 
 
+def read_post_session_scripts(settings_file: Path = SETTINGS_FILE) -> dict[str, list[str]]:
+    return Settings.model_validate(_load_settings(settings_file)).post_session_scripts
+
+
 def save_processing_preferences(
     transfer_on_stop: bool, repair_videos_on_transfer: bool,
     settings_file: Path = SETTINGS_FILE,
+    post_session_scripts: dict[str, list[str]] | None = None,
 ) -> None:
     settings = _load_settings(settings_file)
     settings.pop("repair_videos_on_stop", None)
     settings["transfer_on_stop"] = transfer_on_stop
     settings["repair_videos_on_transfer"] = repair_videos_on_transfer
+    if post_session_scripts is not None:
+        settings["post_session_scripts"] = post_session_scripts
     _save_settings(settings, settings_file)
 
 
