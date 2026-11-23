@@ -264,7 +264,6 @@ def transfer_pis(settings: Settings) -> bool:
 			logger.info("All data successfully transferred from Pis (%s files; total unavailable)", files_completed)
 		else:
 			logger.info("All data successfully transferred from Pis (%s/%s total files)", files_completed, total_files)
-		logger.debug("All Pi files deleted successfully")
 		return True
 	else:
 		logger.warning("Transfer or cleanup failed for Pis: %s. Check these Pis before manually deleting data", ", ".join(failed_transfers))

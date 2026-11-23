@@ -1,12 +1,14 @@
 """Compare the Pi inventory with server files and request safe cleanup."""
 
 import json
+import logging
 import stat
 from pathlib import Path, PurePosixPath
 from subprocess import CalledProcessError, run
 
 PI_CLEANUP_SCRIPT = "~/MAVRS_pi/transfer_cleanup.py"
 MTIME_TOLERANCE_NS = 10_000_000  # exFAT stores modification times in 10 ms steps.
+logger = logging.getLogger(__name__)
 
 
 def _pi_command(host: str, port: str | None, action: str, input_text: str | None = None) -> str:
@@ -45,27 +47,31 @@ def _server_file(root: Path, relative: str):
     return info if stat.S_ISREG(info.st_mode) else None
 
 
-def eligible_files(inventory: list, server_path: str | Path) -> list:
-    """Select files with a newer destination or a same-size copy within 10 ms."""
+def eligible_files(inventory: list, server_path: str | Path, host: str) -> list:
+    """Select files safe to delete, warning about each file left on the Pi."""
     root = Path(server_path)
     selected = []
     for relative, size, mtime_ns in inventory:
         info = _server_file(root, relative)
         if info is None:
+            logger.warning(f"{host}: skipping deletion: File not on server: {relative!r}")
             continue
-        if info.st_mtime_ns > mtime_ns or (info.st_size == size and info.st_mtime_ns >= mtime_ns - MTIME_TOLERANCE_NS):
-            selected.append([relative, size, mtime_ns])
+        if info.st_size != size:
+            if info.st_mtime_ns < mtime_ns - MTIME_TOLERANCE_NS:
+                logger.warning(f"{host}: skipping deletion: File sizes differ and pi file is newer")
+                continue
+        selected.append(relative)
     return selected
 
 
 def cleanup_pi(host: str, port: str | None, server_path: str | Path) -> tuple[int, int]:
     inventory = json.loads(_pi_command(host, port, "inventory"))
-    selected = eligible_files(inventory, server_path)
+    selected = eligible_files(inventory, server_path, host)
     result = json.loads(_pi_command(host, port, "delete", json.dumps(selected)))
     deleted = result["deleted"]
     if deleted != len(selected):
-        raise RuntimeError(
-            f"Deleted {deleted} of {len(selected)} eligible files from {host}; "
-            "files changed or disappeared during cleanup"
+        logger.warning(
+            f"Deleted {deleted} of {len(selected)} approved files from {host}; "
+            "remaining files disappeared during cleanup"
         )
     return deleted, len(inventory)
