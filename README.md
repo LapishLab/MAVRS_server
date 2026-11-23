@@ -136,9 +136,9 @@ a refresh can take a few minutes. The cache is local to this machine and is not
 committed to the repository.
 
 Pi addresses use `[user@]host[:port]`, for example `pi@camera.local` or
-`pi@camera.local:2222`. They default to `~/MAVRS_pi/data` for the
-recording directory; an explicit path such as `pi@camera.local:/custom/data`
-overrides that default. Remote directory settings can use
+`pi@camera.local:2222`. Pi transfers always use `~/MAVRS_pi/data` for the
+recording directory, matching Pi cleanup. An explicit path in a Pi address
+triggers a warning and is ignored. Remote directory settings can use
 `user@backup-host:/archive`, `user@backup-host:2222/archive`,
 `user@backup-host:~/archive`, or `user@backup-host:2222:~/archive`.
 Brackets distinguish IPv6 hosts, such as

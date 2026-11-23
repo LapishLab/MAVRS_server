@@ -204,8 +204,14 @@ class RsyncPathTests(unittest.TestCase):
         ) as connection:
             load_pi_connections()
         self.assertIsNone(connection.call_args.kwargs["port"])
-        with patch("load_settings.read_lines", return_value=["pi@camera.local:/custom/data"]):
-            self.assertEqual(load_pi_addresses()[0].rsync_arg(), "pi@camera.local:/custom/data/")
+        with patch("load_settings.read_lines", return_value=["pi@camera.local:/custom/data"]), patch(
+            "load_settings.logger.warning"
+        ) as warning:
+            self.assertEqual(load_pi_addresses()[0].rsync_arg(), "pi@camera.local:~/MAVRS_pi/data/")
+        warning.assert_called_once_with(
+            "Ignoring data path %s for Pi %s; using %s",
+            PurePosixPath("/custom/data"), "pi@camera.local", "~/MAVRS_pi/data",
+        )
         with patch("load_settings.read_lines", return_value=["pi@[2001:db8::1]:"]), patch(
             "load_settings.PiConnection"
         ) as connection:

@@ -87,7 +87,10 @@ def load_pi_addresses() -> List[Location]:
 	pis = [Location(line) for line in read_lines(PI_ADDRESS_FILE)]
 	if any(pi.host is None for pi in pis):
 		raise ValueError("Pi addresses must contain a remote host")
-	return [pi.with_path(PI_DATA_PATH) if pi.path is None else pi for pi in pis]
+	for pi in pis:
+		if pi.path is not None:
+			logger.warning("Ignoring data path %s for Pi %s; using %s", pi.path, pi.ssh_host, PI_DATA_PATH)
+	return [pi.with_path(PI_DATA_PATH) for pi in pis]
 
 def load_pi_connections() -> List[Connection]:
 	pi_names = load_pi_addresses()
