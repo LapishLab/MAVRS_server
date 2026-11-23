@@ -26,7 +26,7 @@ backup destination, other folders, and suggested session-name format. Session
 names can include `%date%`, `%time%`, `%experiment%`, and `%input%` or
 `%input{prompt}%` substitutions. A blank other-folder path uses the local data
 path; a blank backup destination leaves backup unconfigured.
-**Preferences > Pi fleet Settings** opens a window for
+**Preferences > Pi Fleet Settings** opens a window for
 `~/MAVRS_settings/mavrs_pi_config.yaml`. If missing, MAVRS copies
 `setup/config_templates/mavrs_pi_config.yaml` there. Open the file in your
 system editor, save changes, then deploy to the selected Pis. The table shows
@@ -62,7 +62,7 @@ when running native Windows Python. Linux paths are unchanged.
 By default, **Stop Experiment** stops the Pi recorders, transfers data, repairs
 videos if enabled, and runs post-session scripts. Set `transfer_on_stop: false`
 in `~/MAVRS_settings/settings.yaml`, or clear **Transfer data after stopping an
-experiment** under **Preferences → Automated Data Processing**, to stop recording
+experiment** under **Preferences → Data Processing**, to stop recording
 without collecting data. Use **Transfer Data** in the GUI or run
 `python transfer_data.py` later to collect from all configured Pis and other
 folders, then repair videos and run post-session scripts. This command does not
@@ -104,7 +104,7 @@ files can omit this field; the default is an empty mapping.
 Set `repair_videos_on_transfer: false` in `~/MAVRS_settings/settings.yaml` to
 skip automatic repair after transfer. It defaults to `true` for existing
 settings files, and the former `repair_videos_on_stop` key is still accepted.
-The same option is available in **Preferences > Automated Data Processing >
+The same option is available in **Preferences > Data Processing >
 Repair video timestamps** in the GUI. You can
 still run `video_repair.py` manually.
 

@@ -455,7 +455,7 @@ class ExperimentNameEditorDialog(QtWidgets.QDialog):
 class AutomatedDataProcessingDialog(QtWidgets.QDialog):
 	def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
 		super().__init__(parent)
-		self.setWindowTitle("Automated Data Processing")
+		self.setWindowTitle("Data Processing")
 		layout = QtWidgets.QVBoxLayout(self)
 
 		self.transfer_on_stop = QtWidgets.QCheckBox("Transfer data after stopping an experiment")
@@ -485,7 +485,7 @@ class AutomatedDataProcessingDialog(QtWidgets.QDialog):
 			QtWidgets.QMessageBox.warning(self, "Invalid Settings", format_settings_validation_errors(exc))
 			return
 		except Exception as exc:
-			QtWidgets.QMessageBox.critical(self, "Automated Data Processing", f"Failed to save settings: {exc}")
+			QtWidgets.QMessageBox.critical(self, "Data Processing", f"Failed to save settings: {exc}")
 			return
 		self.accept()
 
@@ -594,7 +594,7 @@ class DataPathsDialog(QtWidgets.QDialog):
 class PiFleetSettingsDialog(QtWidgets.QDialog):
 	def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
 		super().__init__(parent)
-		self.setWindowTitle("Pi fleet Settings")
+		self.setWindowTitle("Pi Fleet Settings")
 		self.resize(*relative_window_size(0.4, 0.5))
 		layout = QtWidgets.QVBoxLayout(self)
 
@@ -733,13 +733,13 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.btn_edit = QtWidgets.QPushButton("Pi Addresses")
 		self.btn_edit_experiments = QtWidgets.QPushButton("Experiment Names")
 		self.btn_data_paths = QtWidgets.QPushButton("Data Paths")
-		self.btn_automated_data_processing = QtWidgets.QPushButton("Automated Data Processing")
-		self.btn_pi_settings = QtWidgets.QPushButton("Pi fleet Settings")
-		preferences_layout.addWidget(self.btn_data_paths)
-		preferences_layout.addWidget(self.btn_automated_data_processing)
+		self.btn_automated_data_processing = QtWidgets.QPushButton("Data Processing")
+		self.btn_pi_settings = QtWidgets.QPushButton("Pi Fleet Settings")
 		preferences_layout.addWidget(self.btn_edit)
 		preferences_layout.addWidget(self.btn_edit_experiments)
+		preferences_layout.addWidget(self.btn_data_paths)
 		preferences_layout.addWidget(self.btn_pi_settings)
+		preferences_layout.addWidget(self.btn_automated_data_processing)
 		preferences_layout.addStretch()
 
 		# tree view for pi statuses
@@ -923,14 +923,14 @@ class MainWindow(QtWidgets.QMainWindow):
 			dlg = AutomatedDataProcessingDialog(self)
 			dlg.exec()
 		except Exception as exc:
-			QtWidgets.QMessageBox.critical(self, "Automated Data Processing", f"Failed to open settings: {exc}")
+			QtWidgets.QMessageBox.critical(self, "Data Processing", f"Failed to open settings: {exc}")
 
 	def open_pi_settings(self) -> None:
 		try:
 			dlg = PiFleetSettingsDialog(self)
 			dlg.exec()
 		except Exception as exc:
-			QtWidgets.QMessageBox.critical(self, "Pi Settings", f"Failed to open Pi fleet settings: {exc}")
+			QtWidgets.QMessageBox.critical(self, "Pi Fleet Settings", f"Failed to open Pi Fleet Settings: {exc}")
 
 	def closeEvent(self, event: QtGui.QCloseEvent) -> None:
 		self.hide()
