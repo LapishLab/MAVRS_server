@@ -6,7 +6,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from pi_utilities import set_time_on_pis, report_disk_space
 from re import search, sub
-from pi_sysemd import start_process
+from pi_systemd import start_process
 from fabric_tools import run_on_connections
 from typing import Optional, List
 from fabric import Connection

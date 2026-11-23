@@ -4,7 +4,7 @@ from load_settings import load_pi_connections
 from fabric import Connection
 from fabric_tools import run_on_connections
 from status_checker import get_pi_statuses, PiStatus
-from config import ENV, UNIT, PYTHON_PATH, SCRIPT_PATH
+from pi_command_config import ENV, UNIT, PYTHON_PATH, SCRIPT_PATH
 from console_logging import configure_logging
 
 logger = logging.getLogger(__name__)

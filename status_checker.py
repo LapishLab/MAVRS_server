@@ -7,7 +7,7 @@ from typing import List, Dict, Optional
 from subprocess import run, CompletedProcess
 
 from load_settings import load_pi_connections, other_folders_save_root
-from config import ENV, UNIT, PYTHON_PATH, STATUS_SCRIPT_PATH
+from pi_command_config import ENV, UNIT, PYTHON_PATH, STATUS_SCRIPT_PATH
 from fabric_tools import run_on_connections
 from fabric import Connection
 from locations import rsync_command

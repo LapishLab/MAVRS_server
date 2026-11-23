@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from load_settings import load_pi_connections, load_settings
 import transfer_data
-from pi_sysemd import stop_process
+from pi_systemd import stop_process
 from console_logging import configure_logging
 
 

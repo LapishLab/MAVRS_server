@@ -2,8 +2,8 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from config import ENV, UNIT
-from pi_sysemd import stop_process
+from pi_command_config import ENV, UNIT
+from pi_systemd import stop_process
 
 
 class StopProcessTests(unittest.TestCase):
@@ -14,8 +14,8 @@ class StopProcessTests(unittest.TestCase):
             SimpleNamespace(exited=0, stdout="", stderr=""),
         ]
 
-        with patch("pi_sysemd.run_on_connections", return_value=results) as run, patch(
-            "pi_sysemd.logger.warning"
+        with patch("pi_systemd.run_on_connections", return_value=results) as run, patch(
+            "pi_systemd.logger.warning"
         ) as warning:
             stop_process(connections)
 
@@ -29,8 +29,8 @@ class StopProcessTests(unittest.TestCase):
             OSError("SSH connection lost"),
         ]
 
-        with patch("pi_sysemd.run_on_connections", return_value=results), patch(
-            "pi_sysemd.logger.warning"
+        with patch("pi_systemd.run_on_connections", return_value=results), patch(
+            "pi_systemd.logger.warning"
         ) as warning:
             stop_process(connections)
 

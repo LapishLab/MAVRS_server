@@ -22,8 +22,8 @@ from PySide6.QtCore import QObject, Signal, Slot, QThread
 from PySide6.QtGui import QStandardItemModel, QStandardItem
 from PySide6.QtWidgets import QApplication
 
-from config import ENV, UNIT
-from data_paths import (
+from pi_command_config import ENV, UNIT
+from gui_settings import (
 	read_data_paths,
 	read_repair_videos_on_transfer,
 	read_transfer_on_stop,

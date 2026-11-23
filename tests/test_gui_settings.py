@@ -5,7 +5,7 @@ from tempfile import TemporaryDirectory
 
 import yaml
 
-from data_paths import (
+from gui_settings import (
     read_data_paths, read_repair_videos_on_transfer, read_transfer_on_stop,
     save_data_paths, save_processing_preferences,
 )
