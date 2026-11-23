@@ -5,7 +5,10 @@ from tempfile import TemporaryDirectory
 
 import yaml
 
-from data_paths import read_data_paths, save_data_paths
+from data_paths import (
+    read_data_paths, read_repair_videos_on_transfer, read_transfer_on_stop,
+    save_data_paths, save_processing_preferences,
+)
 
 
 class DataPathsTests(unittest.TestCase):
@@ -15,6 +18,26 @@ class DataPathsTests(unittest.TestCase):
         self.assertTrue(Path(temporary.name).resolve().is_relative_to(repository.resolve()))
         self.addCleanup(temporary.cleanup)
         self.settings_file = Path(temporary.name) / "settings.yaml"
+
+    def test_processing_preferences_save_together_and_migrate_old_repair_key(self) -> None:
+        local = "C:/data/" if os.name == "nt" else "/data/"
+        self.settings_file.write_text(
+            yaml.safe_dump({
+                "local_data_path": local,
+                "backup_data_path": None,
+                "repair_videos_on_stop": False,
+            }),
+            encoding="utf-8",
+        )
+        self.assertTrue(read_transfer_on_stop(self.settings_file))
+        self.assertFalse(read_repair_videos_on_transfer(self.settings_file))
+
+        save_processing_preferences(False, True, self.settings_file)
+
+        self.assertFalse(read_transfer_on_stop(self.settings_file))
+        self.assertTrue(read_repair_videos_on_transfer(self.settings_file))
+        saved = yaml.safe_load(self.settings_file.read_text(encoding="utf-8"))
+        self.assertNotIn("repair_videos_on_stop", saved)
 
     def test_save_preserves_unrelated_setting_values(self) -> None:
         old_local = "C:/old/" if os.name == "nt" else "/old/"

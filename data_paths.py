@@ -32,13 +32,22 @@ def _save_settings(settings: dict, settings_file: Path) -> None:
             temporary_path.unlink(missing_ok=True)
 
 
-def read_repair_videos_on_stop(settings_file: Path = SETTINGS_FILE) -> bool:
-    return Settings.model_validate(_load_settings(settings_file)).repair_videos_on_stop
+def read_transfer_on_stop(settings_file: Path = SETTINGS_FILE) -> bool:
+    return Settings.model_validate(_load_settings(settings_file)).transfer_on_stop
 
 
-def save_repair_videos_on_stop(enabled: bool, settings_file: Path = SETTINGS_FILE) -> None:
+def read_repair_videos_on_transfer(settings_file: Path = SETTINGS_FILE) -> bool:
+    return Settings.model_validate(_load_settings(settings_file)).repair_videos_on_transfer
+
+
+def save_processing_preferences(
+    transfer_on_stop: bool, repair_videos_on_transfer: bool,
+    settings_file: Path = SETTINGS_FILE,
+) -> None:
     settings = _load_settings(settings_file)
-    settings["repair_videos_on_stop"] = enabled
+    settings.pop("repair_videos_on_stop", None)
+    settings["transfer_on_stop"] = transfer_on_stop
+    settings["repair_videos_on_transfer"] = repair_videos_on_transfer
     _save_settings(settings, settings_file)
 
 

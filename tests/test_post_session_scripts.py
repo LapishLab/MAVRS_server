@@ -6,17 +6,18 @@ from unittest.mock import patch
 from pydantic import ValidationError
 
 from load_settings import Settings
-from stop_experiment import main as stop_main, run_post_session_scripts
-from transfer_data import main as transfer_main
+from stop_experiment import main as stop_main
+from transfer_data import main as transfer_main, run_post_session_scripts
 
 
 class PostSessionScriptTests(unittest.TestCase):
-    def settings(self, scripts=None, other_folders=None):
+    def settings(self, scripts=None, other_folders=None, **options):
         return Settings.model_validate({
             "local_data_path": str(Path.cwd().resolve() / "data with spaces"),
             "backup_data_path": None,
             "other_folders": other_folders or {},
             "post_session_scripts": scripts or {},
+            **options,
         })
 
     def test_runs_labeled_commands_in_order_with_unquoted_directory_argument(self):
@@ -24,8 +25,8 @@ class PostSessionScriptTests(unittest.TestCase):
             "Med": ["python-a", "handling.py", "{local_data_directory}"],
             "Other": ["other-tool", "--input={local_data_directory}"],
         })
-        with patch("stop_experiment.run", return_value=SimpleNamespace(returncode=0)) as run, patch(
-            "stop_experiment.logger.info"
+        with patch("transfer_data.run", return_value=SimpleNamespace(returncode=0)) as run, patch(
+            "transfer_data.logger.info"
         ) as output:
             self.assertTrue(run_post_session_scripts(settings))
 
@@ -41,9 +42,9 @@ class PostSessionScriptTests(unittest.TestCase):
 
     def test_reports_failure_and_continues_to_next_command(self):
         settings = self.settings({"Missing": ["missing"], "Failed": ["failed"]})
-        with patch("stop_experiment.run", side_effect=[OSError("not found"), SimpleNamespace(returncode=2)]) as run, patch(
-            "stop_experiment.logger.warning"
-        ) as warning, patch("builtins.print"):
+        with patch("transfer_data.run", side_effect=[OSError("not found"), SimpleNamespace(returncode=2)]) as run, patch(
+            "transfer_data.logger.warning"
+        ) as warning:
             self.assertFalse(run_post_session_scripts(settings))
         self.assertEqual(run.call_count, 2)
         self.assertEqual(warning.call_count, 2)
@@ -52,7 +53,7 @@ class PostSessionScriptTests(unittest.TestCase):
         settings = self.settings({
             "Med": ["~/med_handling/.venv/Scripts/python.exe", "~/med_handling/handling.py", "{local_data_directory}"]
         })
-        with patch("stop_experiment.run", return_value=SimpleNamespace(returncode=0)) as run, patch("builtins.print"):
+        with patch("transfer_data.run", return_value=SimpleNamespace(returncode=0)) as run:
             self.assertTrue(run_post_session_scripts(settings))
 
         home = Path.home()
@@ -61,50 +62,50 @@ class PostSessionScriptTests(unittest.TestCase):
         self.assertEqual(Path(arguments[1]), home / "med_handling/handling.py")
         self.assertEqual(arguments[2], str(settings.local_data_path.local_path))
 
-    def test_stop_runs_scripts_after_collection_even_when_it_fails(self):
+    def test_stop_only_skips_transfer_and_processing(self):
+        settings = self.settings(transfer_on_stop=False)
+        with patch("stop_experiment.load_pi_connections", return_value=[]) as connections, patch(
+            "stop_experiment.stop_process"
+        ) as stop, patch("stop_experiment.load_settings", return_value=settings), patch(
+            "stop_experiment.transfer_data.main"
+        ) as transfer:
+            self.assertTrue(stop_main())
+        connections.assert_called_once_with()
+        stop.assert_called_once_with([])
+        transfer.assert_not_called()
+
+    def test_stop_with_transfer_uses_full_transfer_command(self):
+        settings = self.settings()
+        with patch("stop_experiment.load_pi_connections", return_value=[]), patch(
+            "stop_experiment.stop_process"
+        ), patch("stop_experiment.load_settings", return_value=settings), patch(
+            "stop_experiment.transfer_data.main", return_value=False
+        ) as transfer:
+            self.assertFalse(stop_main())
+        transfer.assert_called_once_with(settings)
+
+    def test_transfer_runs_repair_and_scripts_even_after_collection_failure(self):
         settings = self.settings({"Med": ["python", "handling.py"]}, {"ephys": None})
         events = []
-        with patch("stop_experiment.stop_pis", side_effect=lambda: events.append("stop")), patch(
-            "stop_experiment.load_settings", return_value=settings
-        ), patch("stop_experiment.transfer_data.main", side_effect=lambda _: events.append("transfer") or True), patch(
-            "stop_experiment.repair_directory", side_effect=lambda _: events.append("repair") or 0
-        ), patch(
-            "stop_experiment.run_post_session_scripts", side_effect=lambda _: events.append("scripts") or True
-        ), patch("builtins.print"):
-            self.assertTrue(stop_main())
-        self.assertEqual(events, ["stop", "transfer", "repair", "scripts"])
+        with patch("transfer_data.get_remote_folders", side_effect=lambda _: events.append("folders") or False), patch(
+            "transfer_data.transfer_pis", side_effect=lambda _: events.append("pis") or True
+        ), patch("transfer_data.repair_directory", side_effect=lambda _: events.append("repair") or 0), patch(
+            "transfer_data.run_post_session_scripts", side_effect=lambda _: events.append("scripts") or True
+        ):
+            self.assertFalse(transfer_main(settings))
+        self.assertEqual(events, ["folders", "pis", "repair", "scripts"])
 
-        events.clear()
-        with patch("stop_experiment.stop_pis", side_effect=lambda: events.append("stop")), patch(
-            "stop_experiment.load_settings", return_value=settings
-        ), patch("stop_experiment.transfer_data.main", side_effect=lambda _: events.append("transfer") or False), patch(
-            "stop_experiment.repair_directory", side_effect=lambda _: events.append("repair") or 0
-        ), patch(
-            "stop_experiment.run_post_session_scripts", side_effect=lambda _: events.append("scripts") or True
-        ), patch("builtins.print"):
-            self.assertFalse(stop_main())
-        self.assertEqual(events, ["stop", "transfer", "repair", "scripts"])
-
-    def test_repair_failures_keep_exit_status_failed_without_skipping_commands(self):
-        settings = self.settings({"Med": ["python", "handling.py"]})
-        with patch("stop_experiment.stop_pis"), patch("stop_experiment.load_settings", return_value=settings), patch(
-            "stop_experiment.transfer_data.main", return_value=True
-        ), patch("stop_experiment.repair_directory", return_value=1) as repair, patch(
-            "stop_experiment.run_post_session_scripts", return_value=True
-        ) as scripts:
-            self.assertFalse(stop_main())
+    def test_repair_failure_keeps_transfer_result_failed(self):
+        settings = self.settings()
+        with patch("transfer_data.transfer_pis", return_value=True), patch(
+            "transfer_data.repair_directory", return_value=1
+        ) as repair, patch("transfer_data.run_post_session_scripts", return_value=True) as scripts:
+            self.assertFalse(transfer_main(settings))
         repair.assert_called_once_with(settings.local_data_path.local_path)
         scripts.assert_called_once_with(settings)
 
-    def test_direct_transfer_does_not_run_scripts(self):
-        settings = self.settings({"Med": ["python", "handling.py"]}, {"ephys": None})
-        with patch("transfer_data.get_remote_folders", return_value=True) as folders, patch(
-            "transfer_data.transfer_pis", return_value=True
-        ) as pis, patch("stop_experiment.run_post_session_scripts") as scripts:
-            self.assertTrue(transfer_main(settings))
-        folders.assert_called_once_with(settings)
-        pis.assert_called_once_with(settings)
-        scripts.assert_not_called()
+    def test_legacy_repair_setting_is_accepted(self):
+        self.assertFalse(self.settings(repair_videos_on_stop=False).repair_videos_on_transfer)
 
     def test_rejects_empty_commands_and_non_string_arguments(self):
         for scripts in ({"Med": []}, {"Med": [""]}, {"Med": ["python", 3]}):

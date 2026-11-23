@@ -25,9 +25,10 @@ from PySide6.QtWidgets import QApplication
 from config import ENV, UNIT
 from data_paths import (
 	read_data_paths,
-	read_repair_videos_on_stop,
+	read_repair_videos_on_transfer,
+	read_transfer_on_stop,
 	save_data_paths,
-	save_repair_videos_on_stop,
+	save_processing_preferences,
 )
 from load_settings import load_pi_connections
 from locations import Location
@@ -42,7 +43,9 @@ def format_settings_validation_errors(error: ValidationError) -> str:
 		"backup_data_path": "Backup data path",
 		"other_folders": "Other folders",
 		"suggested_name_format": "Session name format",
+		"repair_videos_on_transfer": "Repair video timestamps",
 		"repair_videos_on_stop": "Repair video timestamps",
+		"transfer_on_stop": "Transfer data after stopping",
 	}
 	messages = []
 	for issue in error.errors():
@@ -455,8 +458,12 @@ class AutomatedDataProcessingDialog(QtWidgets.QDialog):
 		self.setWindowTitle("Automated Data Processing")
 		layout = QtWidgets.QVBoxLayout(self)
 
+		self.transfer_on_stop = QtWidgets.QCheckBox("Transfer data after stopping an experiment")
+		self.transfer_on_stop.setChecked(read_transfer_on_stop())
+		layout.addWidget(self.transfer_on_stop)
+
 		self.repair_video_timestamps = QtWidgets.QCheckBox("Repair video timestamps")
-		self.repair_video_timestamps.setChecked(read_repair_videos_on_stop())
+		self.repair_video_timestamps.setChecked(read_repair_videos_on_transfer())
 		layout.addWidget(self.repair_video_timestamps)
 
 		buttons = QtWidgets.QHBoxLayout()
@@ -471,7 +478,9 @@ class AutomatedDataProcessingDialog(QtWidgets.QDialog):
 
 	def save(self) -> None:
 		try:
-			save_repair_videos_on_stop(self.repair_video_timestamps.isChecked())
+			save_processing_preferences(
+				self.transfer_on_stop.isChecked(), self.repair_video_timestamps.isChecked()
+			)
 		except ValidationError as exc:
 			QtWidgets.QMessageBox.warning(self, "Invalid Settings", format_settings_validation_errors(exc))
 			return
@@ -713,9 +722,11 @@ class MainWindow(QtWidgets.QMainWindow):
 		btn_layout = QtWidgets.QHBoxLayout()
 		self.btn_start = QtWidgets.QPushButton("Start Experiment")
 		self.btn_stop = QtWidgets.QPushButton("Stop Experiment")
+		self.btn_transfer = QtWidgets.QPushButton("Transfer Data")
 		self.btn_backup = QtWidgets.QPushButton("Backup Data")
 		btn_layout.addWidget(self.btn_start)
 		btn_layout.addWidget(self.btn_stop)
+		btn_layout.addWidget(self.btn_transfer)
 		btn_layout.addWidget(self.btn_backup)
 		layout.addLayout(btn_layout)
 
@@ -765,6 +776,7 @@ class MainWindow(QtWidgets.QMainWindow):
 		# connections
 		self.btn_start.clicked.connect(self.start_experiment)
 		self.btn_stop.clicked.connect(self.stop_experiment)
+		self.btn_transfer.clicked.connect(self.transfer_data)
 		self.btn_backup.clicked.connect(self.backup_data)
 		self.btn_edit.clicked.connect(self.open_editor)
 		self.btn_edit_experiments.clicked.connect(self.open_experiment_name_editor)
@@ -876,6 +888,13 @@ class MainWindow(QtWidgets.QMainWindow):
 			launch_script_in_terminal(script_path)
 		except Exception as exc:
 			QtWidgets.QMessageBox.critical(self, "Error", f"Failed to stop experiment: {exc}")
+
+	def transfer_data(self) -> None:
+		script_path = Path(__file__).resolve().parent / "transfer_data.py"
+		try:
+			launch_script_in_terminal(script_path)
+		except Exception as exc:
+			QtWidgets.QMessageBox.critical(self, "Error", f"Failed to transfer data: {exc}")
 
 	def backup_data(self) -> None:
 		script_path = Path(__file__).resolve().parent / "backup_data.py"

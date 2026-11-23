@@ -3,6 +3,7 @@ from subprocess import run, Popen, PIPE, STDOUT
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import deque
 import logging
+from os.path import expanduser
 from threading import Event, Lock, Thread
 from typing import Callable
 from load_settings import load_settings, load_pi_addresses, Settings, other_folders_save_root
@@ -10,6 +11,7 @@ from path_config import PI_SETTINGS_FILE
 from locations import Location, rsync_command
 from transfer_cleanup import cleanup_pi
 from console_logging import configure_logging
+from video_repair import repair_directory
 
 logger = logging.getLogger(__name__)
 PROGRESS_INTERVAL_SECONDS = 10
@@ -29,7 +31,38 @@ def main(settings: Settings | None = None) -> bool:
 	if settings.other_folders:
 		folders_ok = get_remote_folders(settings)
 	pis_ok = transfer_pis(settings)
-	return folders_ok and pis_ok
+	transfers_ok = folders_ok and pis_ok
+	repair_ok = True
+	if settings.repair_videos_on_transfer:
+		try:
+			failed_repairs = repair_directory(settings.local_data_path.local_path)
+			repair_ok = failed_repairs == 0
+		except Exception as exc:
+			logger.warning("Video repair failed: %s", exc)
+			repair_ok = False
+	else:
+		logger.debug("Video repair skipped (repair_videos_on_transfer is false)")
+	scripts_ok = run_post_session_scripts(settings)
+	return transfers_ok and repair_ok and scripts_ok
+
+
+def run_post_session_scripts(settings: Settings) -> bool:
+	"""Run labeled commands in order, inheriting this terminal's output streams."""
+	all_succeeded = True
+	data_directory = str(settings.local_data_path.local_path)
+	for label, command in settings.post_session_scripts.items():
+		arguments = [expanduser(part.replace("{local_data_directory}", data_directory)) for part in command]
+		logger.info("Running post-session script: %s", label)
+		try:
+			result = run(arguments, check=False)
+		except OSError as exc:
+			logger.warning("Could not run post-session script %s: %s", label, exc)
+			all_succeeded = False
+			continue
+		if result.returncode != 0:
+			logger.warning("Post-session script %s exited with status %s", label, result.returncode)
+			all_succeeded = False
+	return all_succeeded
 	
 def copy_to_pi_home(pis: list[Location] | None = None) -> list[tuple[Location, str | None]]:
 	logger.info("Copying settings to the Pi")

@@ -3,7 +3,7 @@ import logging
 import yaml 
 from pathlib import Path
 from typing import Dict, Optional, List, Union
-from pydantic import BaseModel, Field, ValidationInfo, field_validator
+from pydantic import AliasChoices, BaseModel, Field, ValidationInfo, field_validator
 from path_config import EXPERIMENT_NAMES_FILE, PI_ADDRESS_FILE, SETTINGS_FILE
 from fabric import Config, Connection
 from locations import Location
@@ -24,7 +24,8 @@ class Settings(BaseModel):
 	local_data_path: Location
 	other_folders: Dict[str, Optional[Location]] = {}
 	post_session_scripts: Dict[str, List[str]] = Field(default_factory=dict)
-	repair_videos_on_stop: bool = True
+	transfer_on_stop: bool = True
+	repair_videos_on_transfer: bool = Field(default=True, validation_alias=AliasChoices("repair_videos_on_transfer", "repair_videos_on_stop"))
 	suggested_name_format: str = "%date%_%time%_%experiment%_rat%input{rat number}%"
 	backup_data_path: Optional[Location]
 

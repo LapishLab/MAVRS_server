@@ -57,12 +57,26 @@ slash. Remote `user@host:/path` settings retain their host and Linux directory
 path. Paths such as `/mnt/c/data/` are for WSL and must be changed to `C:/data/`
 when running native Windows Python. Linux paths are unchanged.
 
+## Stopping and transferring data
+
+By default, **Stop Experiment** stops the Pi recorders, transfers data, repairs
+videos if enabled, and runs post-session scripts. Set `transfer_on_stop: false`
+in `~/MAVRS_settings/settings.yaml`, or clear **Transfer data after stopping an
+experiment** under **Preferences → Automated Data Processing**, to stop recording
+without collecting data. Use **Transfer Data** in the GUI or run
+`python transfer_data.py` later to collect from all configured Pis and other
+folders, then repair videos and run post-session scripts. This command does not
+stop recording; run it after the Pis have stopped when possible. Pi data stays
+on the Pis until transfer and eligible-file cleanup complete, so check their
+available disk space before further recordings. Avoid running two transfers at
+once.
+
 ## Post-session scripts
 
 Add labeled command lists to `post_session_scripts` in
-`~/MAVRS_settings/settings.yaml`. These commands run when stopping an
-experiment, after its data collection finishes. Running `transfer_data.py`
-directly only collects data. For example, to run `med_handling` with its own
+`~/MAVRS_settings/settings.yaml`. These commands run after data transfer,
+whether transfer is started by Stop Experiment, the GUI button, or
+`transfer_data.py`. For example, to run `med_handling` with its own
 virtual environment:
 
 ```yaml
@@ -85,22 +99,23 @@ Pi cleanup failure, once all transfer attempts have finished; check the
 transfer warnings before relying on the collected data. Existing settings
 files can omit this field; the default is an empty mapping.
 
-## Video timestamp repair after stopping
+## Video timestamp repair after transfer
 
-Set `repair_videos_on_stop: false` in `~/MAVRS_settings/settings.yaml` to skip
-automatic repair when stopping an experiment. It defaults to `true` for
-existing settings files. The same option is available in **Preferences →
-Automated Data Processing → Repair video timestamps** in the GUI. You can
+Set `repair_videos_on_transfer: false` in `~/MAVRS_settings/settings.yaml` to
+skip automatic repair after transfer. It defaults to `true` for existing
+settings files, and the former `repair_videos_on_stop` key is still accepted.
+The same option is available in **Preferences > Automated Data Processing >
+Repair video timestamps** in the GUI. You can
 still run `video_repair.py` manually.
 
-When enabled, after transfer attempts **Stop Experiment** runs the bundled
+When enabled, after transfer attempts the transfer command runs the bundled
 `video_repair.repair_directory` on `local_data_path`, before the configured
 post-session commands. It examines every `.mp4` below that directory, repairs
 each video in place using its matching `.pts` camera timestamps, and skips
 videos already marked by a matching `.pts.bak` file. The repair logs progress
-in the stop terminal and writes `repair_report.csv` in the local data directory.
+in the transfer terminal and writes `repair_report.csv` in the local data directory.
 Per-video errors are appended to `repair_error.log`; other videos and
-post-session commands still run. Any repair failure gives the stop command a
+post-session commands still run. Any repair failure gives the transfer command a
 failure exit status.
 
 Successful repair replaces the original MP4 and `.pts` files. The original
@@ -108,8 +123,8 @@ Successful repair replaces the original MP4 and `.pts` files. The original
 are saved as `.mp4.timestamps.csv.bak`; the original MP4 bytes are not kept.
 The repair accepts single-stream H.264 videos without B-frames. It changes
 frame order when camera timestamps are out of order, so frame-indexed labels
-made before repair may need remapping. Repair runs after recording has stopped
-and does not change capture timing or the Pi clock.
+made before repair may need remapping. Repair does not change capture timing or
+the Pi clock; run transfer after recording has stopped when possible.
 
 On a Windows domain account, cwRsync may pause while looking up account groups.
 The installer also caches the current account and groups under
